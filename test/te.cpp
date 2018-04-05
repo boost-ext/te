@@ -471,3 +471,44 @@ test should_support_custom_storage = [] {
     expect(46 == addable_move_local.add(40, 2));
   }
 };
+
+#if (__cpp_concepts)
+struct DrawableConcept {
+  void draw(std::ostream &out) const {
+    te::call(
+        [](auto const &self, std::ostream &out) -> decltype(self.draw(out)) {
+          self.draw(out);
+        },
+        *this, out);
+  }
+};
+
+template <class TDrawable>
+requires te::conceptify<DrawableConcept, TDrawable> void draw(
+    TDrawable const &drawable, std::ostream &out) {
+  drawable.draw(out);
+}
+
+test should_support_erasing_using_concepts = [] {
+  {
+    std::stringstream str{};
+    te::var<DrawableConcept> drawable = Square{};
+    drawable.draw(str);
+    expect("Square" == str.str());
+  }
+
+  {
+    std::stringstream str{};
+    auto drawable = Square{};
+    draw(drawable, str);
+    expect("Square" == str.str());
+  }
+
+  {
+    std::stringstream str{};
+    auto drawable = Circle{};
+    draw(drawable, str);
+    expect("Circle" == str.str());
+  }
+};
+#endif

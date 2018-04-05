@@ -46,7 +46,6 @@ int main() {
 }
 ```
 
-
 #### Alternatively, erase + declare it
 
 ```cpp
@@ -160,6 +159,51 @@ int main() {
   draw<v2::Drawable>(Circle{}, 1); // prints v2.1::Circle
   draw<v2::Drawable>(Square{});    // prints v2::Square
   draw<v2::Drawable>(Square{}, 2); // prints v2.2::Square
+}
+```
+
+#### Conceptify it (Requires C++20)
+
+```cpp
+struct Drawable {
+  void draw(std::ostream &out) const {
+    te::call([](auto const &self, std::ostream &out)
+      -> decltype(self.draw(out)) { self.draw(out); }, *this, out);
+  }
+};
+
+struct Square {
+  void draw(std::ostream &out) const { out << "Square"; }
+};
+
+struct Circle {
+  // void draw(std::ostream &out) const { out << "Circle"; }
+};
+
+template<class TDrawable>
+  requires te::conceptify<Drawable, TDrawable>
+void draw(TDrawable const &drawable) { drawable.draw(std::cout); }
+
+int main() {
+  {
+    te::var<Drawable> drawable = Square{};
+    drawable.draw(std::cout);// prints Square
+  }
+
+  {
+    // te::var<Drawable> drawable = Square{}; // error: deduced initializer does not
+    // drawable.draw(std::cout);              //        satisfy placeholder constraints (draw)
+  }
+
+  {
+  auto drawable = Square{};
+  draw(drawable);  // prints Square
+  }
+
+  {
+    // auto drawable = Circle{}; // error: constraints not satisifed (draw)
+    // draw(drawable);
+  }
 }
 ```
 
