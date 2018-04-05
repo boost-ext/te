@@ -92,6 +92,57 @@ test should_erase_the_call = [] {
   }
 };
 
+struct DrawableDeclare : te::poly<DrawableDeclare> {
+  using te::poly<DrawableDeclare>::poly;
+
+  void draw(std::ostream &out) const {
+    te::call([](auto const &self, auto &out) { self.draw(out); }, *this, out);
+  }
+};
+
+test should_erase_and_declare_call = [] {
+  DrawableDeclare drawable{Square{}};
+
+  {
+    std::stringstream str{};
+    drawable.draw(str);
+    expect("Square" == str.str());
+  }
+
+  {
+    std::stringstream str{};
+    drawable = Circle{};
+    drawable.draw(str);
+    expect("Circle" == str.str());
+  }
+};
+
+struct DrawableDeclareCustomStorage
+    : te::poly<DrawableDeclare, te::local_storage<16>> {
+  using te::poly<DrawableDeclare, te::local_storage<16>>::poly;
+
+  void draw(std::ostream &out) const {
+    te::call([](auto const &self, auto &out) { self.draw(out); }, *this, out);
+  }
+};
+
+test should_erase_and_declare_with_custom_storage_call = [] {
+  DrawableDeclareCustomStorage drawable{Square{}};
+
+  {
+    std::stringstream str{};
+    drawable.draw(str);
+    expect("Square" == str.str());
+  }
+
+  {
+    std::stringstream str{};
+    drawable = Circle{};
+    drawable.draw(str);
+    expect("Circle" == str.str());
+  }
+};
+
 test should_reassign = [] {
   te::poly<Drawable> drawable{Circle{}};
   drawable = Square{};
@@ -313,7 +364,10 @@ test should_support_dynamic_storage = [] {
   Storage::calls<MoveCtor>() = 0;
   Storage::calls<Dtor>() = 0;
 
-  { te::dynamic_storage storage{Storage{}}; }
+  {
+    te::detail::void_ptr ptr{};
+    te::dynamic_storage storage{Storage{}, ptr};
+  }
 
   expect(1 == Storage::calls<Ctor>());
   expect(0 == Storage::calls<CopyCtor>());
@@ -327,7 +381,10 @@ test should_support_local_storage = [] {
   Storage::calls<MoveCtor>() = 0;
   Storage::calls<Dtor>() = 0;
 
-  { te::local_storage<16> storage{Storage{}}; }
+  {
+    te::detail::void_ptr ptr{};
+    te::local_storage<16> storage{Storage{}, ptr};
+  }
 
   expect(1 == Storage::calls<Ctor>());
   expect(0 == Storage::calls<CopyCtor>());
