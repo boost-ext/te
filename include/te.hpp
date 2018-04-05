@@ -146,10 +146,11 @@ class dynamic_storage {
  public:
   template <class T, class T_ = std::decay_t<T> >
   constexpr explicit dynamic_storage(T &&t, detail::void_ptr &ptr) noexcept {
-    ptr.reset(
-        new T_{std::forward<T>(t)},
-        [](void *ptr) { delete static_cast<T_ *>(ptr); },
-        [](void *ptr) -> void * { return new T_{*static_cast<T_ *>(ptr)}; });
+    ptr.reset(new T_{std::forward<T>(t)},
+              [](void *ptr) { delete static_cast<T_ *>(ptr); },
+              [](void *ptr) -> void * {
+                return new T_{std::move(*static_cast<T_ *>(ptr))};
+              });
   }
 };
 
@@ -162,7 +163,7 @@ class local_storage {
     new (&data) T_{std::forward<T>(t)};
     ptr.reset(&data, [](void *ptr) { static_cast<T_ *>(ptr)->~T_(); },
               [](void *ptr) -> void * {
-                return new (ptr) T_{*static_cast<T_ *>(ptr)};
+                return new (ptr) T_{std::move(*static_cast<T_ *>(ptr))};
               });
   }
 
@@ -197,8 +198,9 @@ class poly : detail::poly_base,
  public:
   template <class T,
             class = std::enable_if_t<not std::is_convertible<T, poly>{} and
-                                     std::is_copy_constructible<T>{} and
-                                     std::is_destructible<T>{}> >
+                                     std::is_destructible<T>{} and
+                                     (std::is_copy_constructible<T>{} or
+                                      std::is_move_constructible<T>{})> >
   constexpr poly(T &&t) noexcept
       : poly{std::forward<T>(t),
              detail::type_list<decltype(detail::requires__<I>(bool{}))>{}} {}

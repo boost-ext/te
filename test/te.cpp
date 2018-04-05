@@ -154,6 +154,62 @@ test should_reassign = [] {
   }
 };
 
+struct CircleNoncopyable {
+  CircleNoncopyable() = default;
+  CircleNoncopyable(const CircleNoncopyable &) = delete;
+  CircleNoncopyable &operator=(const CircleNoncopyable &) = delete;
+  CircleNoncopyable(CircleNoncopyable &&) = default;
+  CircleNoncopyable &operator=(CircleNoncopyable &&) = default;
+  ~CircleNoncopyable() noexcept = default;
+
+  void draw(std::ostream &out) const { out << "Circle"; }
+};
+
+struct SquareNoncopyable {
+  SquareNoncopyable() = default;
+  SquareNoncopyable(const SquareNoncopyable &) = delete;
+  SquareNoncopyable &operator=(const SquareNoncopyable &) = delete;
+  SquareNoncopyable(SquareNoncopyable &&) = default;
+  SquareNoncopyable &operator=(SquareNoncopyable &&) = default;
+  ~SquareNoncopyable() noexcept = default;
+
+  void draw(std::ostream &out) const { out << "Square"; }
+};
+
+test should_support_movable_only_types = [] {
+  te::poly<Drawable> drawable = CircleNoncopyable{};
+
+  {
+    std::stringstream str{};
+    drawable.draw(str);
+    expect("Circle" == str.str());
+  }
+
+  {
+    std::stringstream str{};
+    drawable = SquareNoncopyable{};
+    drawable.draw(str);
+    expect("Square" == str.str());
+  }
+};
+
+test should_support_movable_only_types_with_local_storage = [] {
+  te::poly<Drawable, te::local_storage<32>> drawable = CircleNoncopyable{};
+
+  {
+    std::stringstream str{};
+    drawable.draw(str);
+    expect("Circle" == str.str());
+  }
+
+  {
+    std::stringstream str{};
+    drawable = SquareNoncopyable{};
+    drawable.draw(str);
+    expect("Square" == str.str());
+  }
+};
+
 test should_support_containers = [] {
   std::vector<te::poly<Drawable>> drawables{};
 
