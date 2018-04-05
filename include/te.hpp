@@ -256,6 +256,13 @@ constexpr auto extends_impl(std::index_sequence<Ns...>) noexcept {
             get(mappings<I, Ns + 1>{}))>{}),
    ...);
 }
+template <class T, class TExpr, class... Ts>
+constexpr auto requires_impl(type_list<TExpr, Ts...>)
+    -> decltype(&TExpr::template operator()<T>);
+
+template <class I, class T, std::size_t... Ns>
+constexpr auto requires_impl(std::index_sequence<Ns...>) -> type_list<
+    decltype(requires_impl<I>(decltype(get(mappings<T, Ns + 1>{})){}))...>;
 }  // namespace detail
 
 template <class R = void, std::size_t N = 0, class TExpr, class I, class... Ts>
@@ -275,6 +282,21 @@ constexpr auto extends(const T &) noexcept {
       std::make_index_sequence<detail::mappings_size<I, T>()>{});
 }
 
+#if defined(__cpp_concepts)
+template <class I, class T>
+concept bool var = requires {
+  detail::requires_impl<I, T>(
+      std::make_index_sequence<detail::mappings_size<T, I>()>{});
+};
+
+template <class T, class I>
+concept bool conceptify = requires {
+  detail::requires_impl<I, T>(
+      std::make_index_sequence<detail::mappings_size<T, I>()>{});
+};
+#endif
+
 }  // namespace v1
 }  // namespace te
+
 #endif
