@@ -81,6 +81,8 @@ class void_ptr final {
   using copy_t = ptr_t (*)(ptr_t);
 
  public:
+  void_ptr() noexcept = default;
+
   template <class T>
   constexpr explicit void_ptr(
       T *ptr = nullptr,
@@ -122,6 +124,12 @@ class void_ptr final {
     ptr = new_ptr;
   }
 
+  constexpr void reset(ptr_t new_ptr, del_t new_del, copy_t new_copy) noexcept {
+    ptr = new_ptr;
+    del = new_del;
+    copy = new_copy;
+  }
+
   template <class T = void>
   constexpr decltype(auto) get() const noexcept {
     return reinterpret_cast<T *>(ptr);
@@ -137,31 +145,28 @@ class void_ptr final {
 class dynamic_storage {
  public:
   template <class T, class T_ = std::decay_t<T> >
-  constexpr explicit dynamic_storage(T &&t) noexcept
-      : ptr{new T_{std::forward<T>(t)}} {}
-  constexpr decltype(auto) get() const noexcept { return ptr.get(); }
-
- private:
-  detail::void_ptr ptr;  // layout
+  constexpr explicit dynamic_storage(T &&t, detail::void_ptr &ptr) noexcept {
+    ptr.reset(
+        new T_{std::forward<T>(t)},
+        [](void *ptr) { delete static_cast<T_ *>(ptr); },
+        [](void *ptr) -> void * { return new T_{*static_cast<T_ *>(ptr)}; });
+  }
 };
 
 template <std::size_t Size, std::size_t Alignment = 16>
 class local_storage {
  public:
   template <class T, class T_ = std::decay_t<T> >
-  constexpr explicit local_storage(T &&t) noexcept
-      : ptr{&data, [](void *ptr) { static_cast<T_ *>(ptr)->~T_(); },
-            [](void *ptr) -> void * {
-              return new (ptr) T_{*static_cast<T_ *>(ptr)};
-            }} {
+  constexpr explicit local_storage(T &&t, detail::void_ptr &ptr) noexcept {
     static_assert(sizeof(T) <= Size);
     new (&data) T_{std::forward<T>(t)};
+    ptr.reset(&data, [](void *ptr) { static_cast<T_ *>(ptr)->~T_(); },
+              [](void *ptr) -> void * {
+                return new (ptr) T_{*static_cast<T_ *>(ptr)};
+              });
   }
 
-  constexpr decltype(auto) get() const noexcept { return &data; }
-
  private:
-  detail::void_ptr ptr;  // layout
   std::aligned_storage<Size, Alignment> data;
 };
 
@@ -170,21 +175,24 @@ class static_vtable {
 
  public:
   template <class T, std::size_t Size>
-  static_vtable(T &&, std::integral_constant<std::size_t, Size>) noexcept {
+  static_vtable(T &&, ptr_t *&vtable,
+                std::integral_constant<std::size_t, Size>) noexcept {
     static ptr_t vt[Size]{};
     vtable = vt;
   }
-  decltype(auto) operator[](std::size_t index) const noexcept {
-    return vtable[index];
-  }
-
- private:
-  ptr_t *vtable{};  // layout
 };
+
+namespace detail {
+struct poly_base {
+  detail::void_ptr ptr{};
+  detail::void_ptr::ptr_t *vptr{};
+};
+}  // namespace detail
 
 template <class I, class TStorage = dynamic_storage,
           class TVtable = static_vtable>
-class poly : public std::conditional_t<detail::is_complete<I>{}, I,
+class poly : detail::poly_base,
+             public std::conditional_t<detail::is_complete<I>{}, I,
                                        detail::type_list<I> > {
  public:
   template <class T,
@@ -207,9 +215,10 @@ class poly : public std::conditional_t<detail::is_complete<I>{}, I,
 
   template <class T, std::size_t... Ns>
   constexpr poly(T &&t, std::index_sequence<Ns...>) noexcept
-      : vtable{std::forward<T>(t),
+      : detail::poly_base{},
+        vtable{std::forward<T>(t), vptr,
                std::integral_constant<std::size_t, sizeof...(Ns)>{}},
-        storage{std::forward<T>(t)} {
+        storage{std::forward<T>(t), ptr} {
     static_assert(sizeof...(Ns) > 0);
     (init<Ns + 1, std::decay_t<T> >(
          decltype(get(detail::mappings<I, Ns + 1>{})){}),
@@ -218,38 +227,27 @@ class poly : public std::conditional_t<detail::is_complete<I>{}, I,
 
   template <std::size_t N, class T, class TExpr, class... TArgs>
   constexpr void init(detail::type_list<TExpr, TArgs...>) noexcept {
-    vtable[N - 1] = reinterpret_cast<void *>(+[](void *self, TArgs... args) {
+    vptr[N - 1] = reinterpret_cast<void *>(+[](void *self, TArgs... args) {
       return detail::expr_wrapper<TExpr>{}(*static_cast<T *>(self), args...);
     });
   }
 
-  template <std::size_t N, class R, class TExpr, class... Ts>
-  friend constexpr auto call(const poly &self,
-                             std::integral_constant<std::size_t, N>,
-                             detail::type_list<R>, const TExpr,
-                             Ts &&... args) noexcept {
-    void(typename detail::mappings<I, N>::template set<
-         detail::type_list<TExpr, Ts...> >{});
-    return reinterpret_cast<R (*)(void *, Ts...)>(self.vtable[N - 1])(
-        self.storage.get(), std::forward<Ts>(args)...);
-  }
-
-  TVtable vtable;
   TStorage storage;
+  TVtable vtable;
 };
 
-template <class R = void, std::size_t N = 0, class TExpr, class I, class... Ts>
-constexpr auto call(const TExpr expr, const I &interface,
-                    Ts &&... args) noexcept {
-  static_assert(std::is_empty<TExpr>{});
-  return call(
-      static_cast<const poly<I> &>(interface),
-      std::integral_constant<std::size_t,
-                             detail::mappings_size<I, class call>() + 1>{},
-      detail::type_list<R>{}, expr, std::forward<Ts>(args)...);
+namespace detail {
+template <class I, std::size_t N, class R, class TExpr, class... Ts>
+constexpr auto call_impl(const detail::poly_base &self,
+                         std::integral_constant<std::size_t, N>,
+                         detail::type_list<R>, const TExpr,
+                         Ts &&... args) noexcept {
+  void(typename detail::mappings<I, N>::template set<
+       detail::type_list<TExpr, Ts...> >{});
+  return reinterpret_cast<R (*)(void *, Ts...)>(self.vptr[N - 1])(
+      self.ptr.get(), std::forward<Ts>(args)...);
 }
 
-namespace detail {
 template <class I, class T, std::size_t... Ns>
 constexpr auto extends_impl(std::index_sequence<Ns...>) noexcept {
   (void(typename mappings<T, Ns + 1>::template set<decltype(
@@ -257,6 +255,17 @@ constexpr auto extends_impl(std::index_sequence<Ns...>) noexcept {
    ...);
 }
 }  // namespace detail
+
+template <class R = void, std::size_t N = 0, class TExpr, class I, class... Ts>
+constexpr auto call(const TExpr expr, const I &interface,
+                    Ts &&... args) noexcept {
+  static_assert(std::is_empty<TExpr>{});
+  return detail::call_impl<I>(
+      reinterpret_cast<const detail::poly_base &>(interface),
+      std::integral_constant<std::size_t,
+                             detail::mappings_size<I, class call>() + 1>{},
+      detail::type_list<R>{}, expr, std::forward<Ts>(args)...);
+}
 
 template <class I, class T>
 constexpr auto extends(const T &) noexcept {
