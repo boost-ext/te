@@ -167,7 +167,7 @@ int main() {
 ```cpp
 struct Drawable {
   void draw(std::ostream &out) const {
-    te::call([](auto const &self, std::ostream &out)
+    te::call([](auto const &self, auto &out)
       -> decltype(self.draw(out)) { self.draw(out); }, *this, out);
   }
 };
@@ -180,8 +180,7 @@ struct Circle {
   // void draw(std::ostream &out) const { out << "Circle"; }
 };
 
-template<class TDrawable>
-  requires te::conceptify<Drawable, TDrawable>
+template<te::conceptify<Drawable> TDrawable>
 void draw(TDrawable const &drawable) { drawable.draw(std::cout); }
 
 int main() {
@@ -196,8 +195,8 @@ int main() {
   }
 
   {
-  auto drawable = Square{};
-  draw(drawable);  // prints Square
+    auto drawable = Square{};
+    draw(drawable);  // prints Square
   }
 
   {
@@ -292,7 +291,7 @@ int main() {
   return ::te::call<R>(                                        \
     [](auto&& self, auto&&... args) {                          \
       return self.name(std::forward<decltype(args)>(args)...); \
-    }, *this, __VA_ARGS__                                      \
+    }, *this, ## __VA_ARGS__                                   \
   );                                                           \
 }
 

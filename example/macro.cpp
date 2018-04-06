@@ -9,15 +9,6 @@
 
 #include "te.hpp"
 
-#define REQUIRES(R, name, ...)                                     \
-  R {                                                              \
-    return ::te::call<R>(                                          \
-        [](auto&& self, auto&&... args) {                          \
-          return self.name(std::forward<decltype(args)>(args)...); \
-        },                                                         \
-        *this, __VA_ARGS__);                                       \
-  }
-
 struct Addable {
   constexpr auto add(int i) -> REQUIRES(int, add, i);
   constexpr auto add(int a, int b) -> REQUIRES(int, add, a, b);
