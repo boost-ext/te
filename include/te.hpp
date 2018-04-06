@@ -240,12 +240,10 @@ class poly : detail::poly_base,
 
 namespace detail {
 template <class I, std::size_t N, class R, class TExpr, class... Ts>
-constexpr auto call_impl(const detail::poly_base &self,
-                         std::integral_constant<std::size_t, N>,
-                         detail::type_list<R>, const TExpr,
-                         Ts &&... args) noexcept {
-  void(typename detail::mappings<I, N>::template set<
-       detail::type_list<TExpr, Ts...> >{});
+constexpr auto call_impl(const poly_base &self,
+                         std::integral_constant<std::size_t, N>, type_list<R>,
+                         const TExpr, Ts &&... args) noexcept {
+  void(typename mappings<I, N>::template set<type_list<TExpr, Ts...> >{});
   return reinterpret_cast<R (*)(void *, Ts...)>(self.vptr[N - 1])(
       self.ptr.get(), std::forward<Ts>(args)...);
 }
@@ -256,9 +254,10 @@ constexpr auto extends_impl(std::index_sequence<Ns...>) noexcept {
             get(mappings<I, Ns + 1>{}))>{}),
    ...);
 }
+
 template <class T, class TExpr, class... Ts>
 constexpr auto requires_impl(type_list<TExpr, Ts...>)
-    -> decltype(&TExpr::template operator()<T>);
+    -> decltype(&TExpr::template operator()<T, Ts...>);
 
 template <class I, class T, std::size_t... Ns>
 constexpr auto requires_impl(std::index_sequence<Ns...>) -> type_list<
@@ -289,7 +288,7 @@ concept bool var = requires {
       std::make_index_sequence<detail::mappings_size<T, I>()>{});
 };
 
-template <class T, class I>
+template <class I, class T>
 concept bool conceptify = requires {
   detail::requires_impl<I, T>(
       std::make_index_sequence<detail::mappings_size<T, I>()>{});
@@ -298,5 +297,17 @@ concept bool conceptify = requires {
 
 }  // namespace v1
 }  // namespace te
+
+#if not defined(REQUIRES)
+#define REQUIRES(R, name, ...)                                              \
+  R {                                                                       \
+    return ::te::call<R>(                                                   \
+        [](auto&& self, auto&&... args)                                     \
+            -> decltype(self.name(std::forward<decltype(args)>(args)...)) { \
+          return self.name(std::forward<decltype(args)>(args)...);          \
+        },                                                                  \
+        *this, ##__VA_ARGS__);                                              \
+  }
+#endif
 
 #endif

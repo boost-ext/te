@@ -117,6 +117,27 @@ test should_erase_and_declare_call = [] {
   }
 };
 
+struct DrawableMacro {
+  auto draw(std::ostream &out) const -> REQUIRES(void, draw, out);
+};
+
+test should_erase_the_call_using_macro = [] {
+  te::poly<DrawableMacro> drawable{Square{}};
+
+  {
+    std::stringstream str{};
+    drawable.draw(str);
+    expect("Square" == str.str());
+  }
+
+  {
+    std::stringstream str{};
+    drawable = Circle{};
+    drawable.draw(str);
+    expect("Circle" == str.str());
+  }
+};
+
 struct DrawableDeclareCustomStorage
     : te::poly<DrawableDeclare, te::local_storage<16>> {
   using te::poly<DrawableDeclare, te::local_storage<16>>::poly;
@@ -475,16 +496,33 @@ test should_support_custom_storage = [] {
 #if (__cpp_concepts)
 struct DrawableConcept {
   void draw(std::ostream &out) const {
-    te::call(
-        [](auto const &self, std::ostream &out) -> decltype(self.draw(out)) {
-          self.draw(out);
-        },
-        *this, out);
+    te::call([](auto const &self,
+                auto &out) -> decltype(self.draw(out)) { self.draw(out); },
+             *this, out);
+  }
+
+  auto empty() {
+    return te::call<int>(
+        [](auto &self) -> decltype(self.empty()) { return self.empty(); },
+        *this);
   }
 };
 
+struct Empty {
+  void draw(std::ostream &out) const { out << "Empty"; }
+  int empty() { return 1; }
+};
+
+struct CircleEmpty : Circle {
+  int empty() { return 2; }
+};
+
+struct SquareEmpty : Square {
+  int empty() { return 3; }
+};
+
 template <class TDrawable>
-requires te::conceptify<DrawableConcept, TDrawable> void draw(
+requires te::conceptify<TDrawable, DrawableConcept> void draw(
     TDrawable const &drawable, std::ostream &out) {
   drawable.draw(out);
 }
@@ -492,23 +530,58 @@ requires te::conceptify<DrawableConcept, TDrawable> void draw(
 test should_support_erasing_using_concepts = [] {
   {
     std::stringstream str{};
-    te::var<DrawableConcept> drawable = Square{};
+    te::var<DrawableConcept> drawable = SquareEmpty{};
     drawable.draw(str);
     expect("Square" == str.str());
+    expect(3 == drawable.empty());
   }
 
   {
     std::stringstream str{};
-    auto drawable = Square{};
+    auto drawable = SquareEmpty{};
     draw(drawable, str);
     expect("Square" == str.str());
+    expect(3 == drawable.empty());
   }
 
   {
     std::stringstream str{};
-    auto drawable = Circle{};
+    auto drawable = CircleEmpty{};
     draw(drawable, str);
     expect("Circle" == str.str());
+    expect(2 == drawable.empty());
+  }
+
+  {
+    std::stringstream str{};
+    auto drawable = Empty{};
+    draw(drawable, str);
+    expect("Empty" == str.str());
+    expect(1 == drawable.empty());
   }
 };
+
+struct DrawableConceptMacro {
+  auto draw(std::ostream &out) const -> REQUIRES(void, draw, out);
+  auto empty() -> REQUIRES(int, empty);
+};
+
+test should_support_erasing_using_concepts_macro = [] {
+  {
+    std::stringstream str{};
+    te::var<DrawableConceptMacro> drawable = SquareEmpty{};
+    drawable.draw(str);
+    expect("Square" == str.str());
+    expect(3 == drawable.empty());
+  }
+
+  {
+    std::stringstream str{};
+    auto drawable = Empty{};
+    draw(drawable, str);
+    expect("Empty" == str.str());
+    expect(1 == drawable.empty());
+  }
+};
+
 #endif

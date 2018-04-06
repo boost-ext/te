@@ -12,11 +12,9 @@
 
 struct Drawable {
   void draw(std::ostream &out) const {
-    te::call(
-        [](auto const &self, std::ostream &out) -> decltype(self.draw(out)) {
-          self.draw(out);
-        },
-        *this, out);
+    te::call([](auto const &self,
+                auto &out) -> decltype(self.draw(out)) { self.draw(out); },
+             *this, out);
   }
 };
 
@@ -28,9 +26,8 @@ struct Circle {
   void draw(std::ostream &out) const { out << "Circle"; }
 };
 
-template <class TDrawable>
-requires te::conceptify<Drawable, TDrawable> void draw(
-    TDrawable const &drawable) {
+template <te::conceptify<Drawable> TDrawable>
+void draw(TDrawable const &drawable) {
   drawable.draw(std::cout);
 }
 
