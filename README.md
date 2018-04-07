@@ -36,11 +36,11 @@ struct Circle {
   void draw(std::ostream &out) const { out << "Circle"; }
 };
 
-// Define object which can hold drawable objects (No dynamic storage)
+// Define object which can hold drawable objects
 void draw(te::poly<Drawable> const &drawable) { drawable.draw(std::cout); }
 
 int main() {
-  // Call draw polymorphically (Value semantics)
+  // Call draw polymorphically (Value semantics / Small Buffer Optimization)
   draw(Circle{}); // prints Circle
   draw(Square{}); // prints Square
 }
@@ -244,6 +244,38 @@ void draw(te::poly<Drawable> const &drawable) { drawable.draw(std::cout); }
 int main() {
   draw(Circle{});  // prints Non-member Circle
   draw(Square{});  // prints Member Square
+}
+```
+
+#### Forward it
+
+```cpp
+// header
+struct Drawable {
+  void draw(std::ostream &out) const;
+};
+
+void draw(te::poly<Drawable> const &);
+
+struct Square {
+  void draw(std::ostream &out) const { out << "Square"; }
+};
+
+struct Circle {
+  void draw(std::ostream &out) const { out << "Circle"; }
+};
+
+// cpp
+void draw(te::poly<Drawable> const &drawable) { drawable.draw(std::cout); }
+
+void Drawable::draw(std::ostream& out) const {
+  te::call([](auto const &self, auto &out) { self.draw(out); }, *this, out);
+}
+
+// uasage
+int main() {
+  draw(Circle{});  // prints Circle
+  draw(Square{});  // prints Square
 }
 ```
 
