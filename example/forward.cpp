@@ -25,7 +25,7 @@ struct Circle {
 // cpp
 void draw(te::poly<Drawable> const &drawable) { drawable.draw(std::cout); }
 
-void Drawable::draw(std::ostream& out) const {
+void Drawable::draw(std::ostream &out) const {
   te::call([](auto const &self, auto &out) { self.draw(out); }, *this, out);
 }
 

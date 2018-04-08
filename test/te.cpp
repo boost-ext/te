@@ -233,10 +233,11 @@ test should_support_movable_only_types_with_local_storage = [] {
 
 test should_support_containers = [] {
   std::vector<te::poly<Drawable>> drawables{};
+  drawables.reserve(42);
 
   drawables.push_back(Square{});
   drawables.push_back(Circle{});
-  drawables.push_back(Triangle{});
+  drawables.emplace_back(Triangle{});
 
   std::stringstream str{};
   for (const auto &drawable : drawables) {

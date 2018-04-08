@@ -196,11 +196,8 @@ class poly : detail::poly_base,
              public std::conditional_t<detail::is_complete<I>{}, I,
                                        detail::type_list<I> > {
  public:
-  template <class T,
-            class = std::enable_if_t<not std::is_convertible<T, poly>{} and
-                                     std::is_destructible<T>{} and
-                                     (std::is_copy_constructible<T>{} or
-                                      std::is_move_constructible<T>{})> >
+  template <class T, class = std::enable_if_t<
+                         not std::is_convertible<std::decay_t<T>, poly>{}> >
   constexpr poly(T &&t) noexcept
       : poly{std::forward<T>(t),
              detail::type_list<decltype(detail::requires__<I>(bool{}))>{}} {}
@@ -215,13 +212,16 @@ class poly : detail::poly_base,
       : poly{std::forward<T>(t),
              std::make_index_sequence<detail::mappings_size<I>()>{}} {}
 
-  template <class T, std::size_t... Ns>
+  template <class T, class T_ = std::decay_t<T>, std::size_t... Ns>
   constexpr poly(T &&t, std::index_sequence<Ns...>) noexcept
       : detail::poly_base{},
         vtable{std::forward<T>(t), vptr,
                std::integral_constant<std::size_t, sizeof...(Ns)>{}},
         storage{std::forward<T>(t), ptr} {
     static_assert(sizeof...(Ns) > 0);
+    static_assert(std::is_destructible<T_>{});
+    static_assert(std::is_copy_constructible<T>{} or
+                  std::is_move_constructible<T>{});
     (init<Ns + 1, std::decay_t<T> >(
          decltype(get(detail::mappings<I, Ns + 1>{})){}),
      ...);
