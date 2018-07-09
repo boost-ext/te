@@ -10,7 +10,9 @@
 #include <vector>
 
 #include "common/test.hpp"
-#include "te.hpp"
+#include "boost/te.hpp"
+
+namespace te = boost::te;
 
 test should_set_get_mappings = [] {
   struct B {};

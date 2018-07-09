@@ -7,7 +7,9 @@
 //
 #include <cassert>
 
-#include "te.hpp"
+#include "boost/te.hpp"
+
+namespace te = boost::te;
 
 struct Addable {
   constexpr auto add(int i) -> REQUIRES(int, add, i);

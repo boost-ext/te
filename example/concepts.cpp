@@ -8,7 +8,9 @@
 #if defined(__cpp_concepts)
 #include <iostream>
 
-#include "te.hpp"
+#include "boost/te.hpp"
+
+namespace te = boost::te;
 
 struct Drawable {
   void draw(std::ostream &out) const {
