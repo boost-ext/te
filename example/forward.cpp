@@ -7,7 +7,9 @@
 //
 #include <iostream>
 
-#include "te.hpp"
+#include "boost/te.hpp"
+
+namespace te = boost::te;
 
 // header
 struct Drawable {

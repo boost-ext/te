@@ -13,13 +13,13 @@
     not defined(__cpp_return_type_deduction) or                                \
     not defined(__cpp_fold_expressions) or not defined(__cpp_static_assert) or \
     not defined(__cpp_delegating_constructors)
-#error "Type.Erasure requires C++17 support"
+#error "[Boost].TE requires C++17 support"
 #else
 #pragma GCC system_header
 #include <type_traits>
 #include <utility>
 
-namespace te {
+namespace boost::te {
 inline namespace v1 {
 namespace detail {
 template <class...>
@@ -296,7 +296,7 @@ concept bool conceptify = requires {
 #endif
 
 }  // namespace v1
-}  // namespace te
+}  // namespace boost::te
 
 #if not defined(REQUIRES)
 #define REQUIRES(R, name, ...)                                              \

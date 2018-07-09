@@ -7,7 +7,9 @@
 //
 #include <cassert>
 
-#include "te.hpp"
+#include "boost/te.hpp"
+
+namespace te = boost::te;
 
 template <class>
 struct Function;

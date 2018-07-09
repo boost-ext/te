@@ -8,7 +8,9 @@
 #include <experimental/type_traits>
 #include <iostream>
 
-#include "te.hpp"
+#include "boost/te.hpp"
+
+namespace te = boost::te;
 
 void draw(struct Circle const &, std::ostream &);
 

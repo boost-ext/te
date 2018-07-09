@@ -1,6 +1,6 @@
-# Type.Erasure <a href="http://www.boost.org/LICENSE_1_0.txt" target="_blank">![Boost Licence](http://img.shields.io/badge/license-boost-blue.svg)</a> <a href="https://travis-ci.org/boost-experimental/te" target="_blank">![Build Status](https://img.shields.io/travis/boost-experimental/te/master.svg?label=linux/osx)</a> <a href="https://codecov.io/gh/boost-experimental/te" target="_blank">![Coveralls](https://codecov.io/gh/boost-experimental/te/branch/master/graph/badge.svg)</a> <a href="http://github.com/boost-experimental/te/issues" target="_blank">![Github Issues](https://img.shields.io/github/issues/boost-experimental/te.svg)</a> <a href="https://godbolt.org/g/jwyvka">![Try it online](https://img.shields.io/badge/try%20it-online-blue.svg)</a>
+# [Boost].TE <a href="http://www.boost.org/LICENSE_1_0.txt" target="_blank">![Boost Licence](http://img.shields.io/badge/license-boost-blue.svg)</a> <a href="https://travis-ci.org/boost-experimental/te" target="_blank">![Build Status](https://img.shields.io/travis/boost-experimental/te/master.svg?label=linux/osx)</a> <a href="https://codecov.io/gh/boost-experimental/te" target="_blank">![Coveralls](https://codecov.io/gh/boost-experimental/te/branch/master/graph/badge.svg)</a> <a href="http://github.com/boost-experimental/te/issues" target="_blank">![Github Issues](https://img.shields.io/github/issues/boost-experimental/te.svg)</a> <a href="https://godbolt.org/g/jwyvka">![Try it online](https://img.shields.io/badge/try%20it-online-blue.svg)</a>
 
-> Your C++17 **one header only** run-time polymorphism library with no dependencies, macros and limited boilerplate
+> Your C++17 **one header only** run-time polymorphism (type erasure) library with no dependencies, macros and limited boilerplate
 
 * *Duck typing ([No inheritance](https://en.wikipedia.org/wiki/Duck_typing))*
 * *Value semantics ([Value vs reference semantics](https://isocpp.org/wiki/faq/value-vs-ref-semantics))*
@@ -10,10 +10,11 @@
 
 ### Quick start
 
-> Type.Erasure requires only one file. Get the latest header [here!](https://github.com/boost-experimental/te/blob/master/include/te.hpp)
+> [Boost].TE requires only one file. Get the latest header [here!](https://github.com/boost-experimental/te/blob/master/include/te.hpp)
 
 ```cpp
-#include <te.hpp> // Requires C++17 (Tested: GCC-6+, Clang-4.0+, Apple:Clang-9.1+)
+#include <boost/te.hpp> // Requires C++17 (Tested: GCC-6+, Clang-4.0+, Apple:Clang-9.1+)
+namespace te = boost::te;
 ```
 
 #### Erase it
@@ -394,4 +395,4 @@ int main() {
 
 ---
 
-**Disclaimer** `Type.Erasure` is an experimental library.
+**Disclaimer** `[Boost].TE` is not an official Boost library.
