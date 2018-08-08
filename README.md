@@ -124,7 +124,7 @@ namespace v2 {
 
     // override
     void draw(std::ostream &out) const {
-      te::call([](auto const &self, auto &&... args) { self.draw(args...); }, *this, out, "v3");
+      te::call([](auto const &self, auto &&... args) { self.draw(args...); }, *this, out, "v2");
     }
 
     // extend/overload
