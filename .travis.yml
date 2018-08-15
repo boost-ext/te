@@ -1,0 +1,54 @@
+#
+# Copyright (c) 2018 Kris Jusiak (kris at jusiak dot net)
+#
+# Distributed under the Boost Software License, Version 1.0.
+# (See accompanying file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
+#
+dist: trusty
+sudo: required
+
+matrix:
+  fast_finish: true
+  include:
+
+  - os: linux
+    env: CXX=clang++-4.0 VARIANT=valgrind
+    addons: { apt: { packages: ["clang-4.0", "libstdc++-6-dev", "valgrind"], sources: ["ubuntu-toolchain-r-test", "llvm-toolchain-trusty-4.0"] } }
+
+  - os: linux
+    env: CXX=clang++-5.0 VARIANT=valgrind
+    addons: { apt: { packages: ["clang-5.0", "libstdc++-6-dev", "valgrind"], sources: ["ubuntu-toolchain-r-test", "llvm-toolchain-trusty-5.0"] } }
+
+  - os: linux
+    env: CXX=clang++-5.0 VARIANT=sanitizers
+    addons: { apt: { packages: ["clang-5.0", "libstdc++-6-dev"], sources: ["ubuntu-toolchain-r-test", "llvm-toolchain-trusty-5.0"] } }
+
+  - os: linux
+    env: CXX=g++-7 VARIANT=valgrind
+    addons: { apt: { packages: ["g++-7", "libstdc++-7-dev", "valgrind"], sources: ["ubuntu-toolchain-r-test"] } }
+
+  - os: linux
+    env: CXX=g++-7 VARIANT=coverage
+    addons: { apt: { packages: ["g++-7", "libstdc++-7-dev"], sources: ["ubuntu-toolchain-r-test"] } }
+
+  - os: osx
+    osx_image: xcode9.1
+    env: CXX=clang++ VARIANT=valgrind
+
+script:
+  - if [ "${VARIANT}" == "valgrind" ]; then (
+      cmake -Bbuild/debug -DCMAKE_BUILD_TYPE=Debug -DENABLE_MEMCHECK=ON -H. && cmake --build build/debug &&
+      cmake -Bbuild/release -DCMAKE_BUILD_TYPE=Release -DENABLE_MEMCHECK=ON -H. && cmake --build build/release
+    ); fi
+  - if [ "${VARIANT}" == "sanitizers" ]; then (
+      cmake -Bbuild/debug/sanitizers -DCMAKE_BUILD_TYPE=Debug -DENABLE_SANITIZERS=ON -H. && cmake --build build/debug/sanitizers
+    ); fi
+  - if [ "${VARIANT}" == "coverage" ]; then (
+      cmake -Bbuild/debug/coverage -DCMAKE_BUILD_TYPE=Debug -DENABLE_COVERAGE=ON -H. && cmake --build build/debug/coverage &&
+      bash <(curl -s https://codecov.io/bash)
+    ); fi
+
+notifications:
+  on_success: change
+  on_failure: always
+  on_start: false
