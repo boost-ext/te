@@ -142,6 +142,16 @@ class void_ptr final {
 };
 }  // namespace detail
 
+class non_owning_storage {
+ public:
+  template <class T, class T_ = std::decay_t<T> >
+  constexpr explicit non_owning_storage(T &&t, detail::void_ptr &ptr) noexcept {
+    ptr.reset(&t,
+              []([[maybe_unused]] void *ptr) {},
+              [](void *ptr) -> void * { return static_cast<T_ *>(ptr); });
+  }
+};    
+    
 class dynamic_storage {
  public:
   template <class T, class T_ = std::decay_t<T> >

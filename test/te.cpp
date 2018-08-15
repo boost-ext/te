@@ -496,6 +496,52 @@ test should_support_custom_storage = [] {
   }
 };
 
+
+struct DrawableMutable : te::poly<DrawableMutable, te::non_owning_storage> {
+  using te::poly<DrawableMutable, te::non_owning_storage>::poly;
+
+  void draw(std::ostream &out) {
+    te::call([](auto &self, auto &out) { self.draw(out); }, *this, out);
+  }
+};
+
+struct SquareMutable {
+   int value;
+
+   void draw(std::ostream &out) {
+      out << "Square Mutable"; 
+      value += 1;
+   }
+};
+
+test should_support_non_owning_storage = [] {
+  const auto draw_mut = [](auto &drawable, auto &str) { drawable.draw(str); };
+  {
+    SquareMutable a{};
+    std::stringstream str{};
+
+    draw_mut(a, str);
+
+    expect("Square Mutable" == str.str());
+    expect(1 == a.value);
+  }
+
+  {
+    SquareMutable b{};
+    SquareMutable c{};
+    std::stringstream str{};
+    std::vector<DrawableMutable> drawables_mut{b, c};
+
+    for (auto& drawable : drawables_mut) {
+      draw_mut(drawable, str);
+    }
+     
+    expect("Square MutableSquare Mutable" == str.str());
+    expect(1 == b.value);
+    expect(1 == c.value);
+  }
+};
+
 #if (__cpp_concepts)
 struct DrawableConcept {
   void draw(std::ostream &out) const {
@@ -586,5 +632,4 @@ test should_support_erasing_using_concepts_macro = [] {
     expect(1 == drawable.empty());
   }
 };
-
 #endif
