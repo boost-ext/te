@@ -10,7 +10,7 @@
 
 ### Quick start
 
-> [Boost].TE requires only one file. Get the latest header [here!](https://github.com/boost-experimental/te/blob/master/include/te.hpp)
+> [Boost].TE requires only one file. Get the latest header [here!](https://github.com/boost-experimental/te/blob/master/include/boost/te.hpp)
 
 ```cpp
 #include <boost/te.hpp> // Requires C++17 (Tested: GCC-6+, Clang-4.0+, Apple:Clang-9.1+)
