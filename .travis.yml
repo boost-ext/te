@@ -1,38 +1,60 @@
 #
-# Copyright (c) 2018 Kris Jusiak (kris at jusiak dot net)
+# Copyright (c) 2018-2019 Kris Jusiak (kris at jusiak dot net)
 #
 # Distributed under the Boost Software License, Version 1.0.
 # (See accompanying file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 #
-dist: trusty
-sudo: required
+sudo: false
 
 matrix:
   fast_finish: true
   include:
 
   - os: linux
+    dist: trusty
     env: CXX=clang++-4.0 VARIANT=valgrind
     addons: { apt: { packages: ["clang-4.0", "libstdc++-6-dev", "valgrind"], sources: ["ubuntu-toolchain-r-test", "llvm-toolchain-trusty-4.0"] } }
 
   - os: linux
+    dist: trusty
     env: CXX=clang++-5.0 VARIANT=valgrind
     addons: { apt: { packages: ["clang-5.0", "libstdc++-6-dev", "valgrind"], sources: ["ubuntu-toolchain-r-test", "llvm-toolchain-trusty-5.0"] } }
 
   - os: linux
-    env: CXX=clang++-5.0 VARIANT=sanitizers
-    addons: { apt: { packages: ["clang-5.0", "libstdc++-6-dev"], sources: ["ubuntu-toolchain-r-test", "llvm-toolchain-trusty-5.0"] } }
+    dist: trusty
+    env: CXX=clang++-6.0 VARIANT=valgrind
+    addons: { apt: { packages: ["clang-6.0", "libstdc++-6-dev", "valgrind"], sources: ["ubuntu-toolchain-r-test", "llvm-toolchain-trusty-6.0"] } }
 
   - os: linux
+    dist: trusty
+    env: CXX=clang++-7 VARIANT=valgrind
+    addons: { apt: { packages: ["clang-7", "libstdc++-7-dev", "valgrind"], sources: ["ubuntu-toolchain-r-test", "llvm-toolchain-trusty-7"] } }
+
+  - os: linux
+    dist: trusty
+    env: CXX=clang++-7 VARIANT=sanitizers
+    addons: { apt: { packages: ["clang-7", "libstdc++-7-dev", "valgrind"], sources: ["ubuntu-toolchain-r-test", "llvm-toolchain-trusty-7"] } }
+
+  - os: linux
+    dist: trusty
     env: CXX=g++-7 VARIANT=valgrind
-    addons: { apt: { packages: ["g++-7", "libstdc++-7-dev", "valgrind"], sources: ["ubuntu-toolchain-r-test"] } }
+    addons: { apt: { packages: ["g++-7", "libstdc++-7-dev"], sources: ["ubuntu-toolchain-r-test"] } }
 
   - os: linux
+    dist: trusty
     env: CXX=g++-7 VARIANT=coverage
     addons: { apt: { packages: ["g++-7", "libstdc++-7-dev"], sources: ["ubuntu-toolchain-r-test"] } }
 
   - os: osx
     osx_image: xcode9.1
+    env: CXX=clang++ VARIANT=valgrind
+
+  - os: osx
+    osx_image: xcode10
+    env: CXX=clang++ VARIANT=valgrind
+
+  - os: osx
+    osx_image: xcode10.1
     env: CXX=clang++ VARIANT=valgrind
 
 script:
