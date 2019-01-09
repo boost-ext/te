@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2018 Kris Jusiak (kris at jusiak dot net)
+// Copyright (c) 2018-2019 Kris Jusiak (kris at jusiak dot net)
 //
 // Distributed under the Boost Software License, Version 1.0.
 // (See accompanying file LICENSE_1_0.txt or copy at
@@ -150,8 +150,8 @@ class non_owning_storage {
               []([[maybe_unused]] void *ptr) {},
               [](void *ptr) -> void * { return static_cast<T_ *>(ptr); });
   }
-};    
-    
+};
+
 class dynamic_storage {
  public:
   template <class T, class T_ = std::decay_t<T> >
