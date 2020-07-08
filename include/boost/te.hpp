@@ -19,7 +19,9 @@
 #include <type_traits>
 #include <utility>
 
-namespace boost::inline ext::te {
+namespace boost {
+inline namespace ext {
+namespace te {
 inline namespace v1 {
 namespace detail {
 template <class...>
@@ -146,8 +148,7 @@ class non_owning_storage {
  public:
   template <class T, class T_ = std::decay_t<T> >
   constexpr explicit non_owning_storage(T &&t, detail::void_ptr &ptr) noexcept {
-    ptr.reset(&t,
-              []([[maybe_unused]] void *ptr) {},
+    ptr.reset(&t, []([[maybe_unused]] void *ptr) {},
               [](void *ptr) -> void * { return static_cast<T_ *>(ptr); });
   }
 };
@@ -206,8 +207,9 @@ class poly : detail::poly_base,
              public std::conditional_t<detail::is_complete<I>{}, I,
                                        detail::type_list<I> > {
  public:
-  template <class T, class = std::enable_if_t<
-                         not std::is_convertible<std::decay_t<T>, poly>{}> >
+  template <class T,
+            class = std::enable_if_t<
+                not std::is_convertible<std::decay_t<T>, poly>{}> >
   constexpr poly(T &&t) noexcept
       : poly{std::forward<T>(t),
              detail::type_list<decltype(detail::requires__<I>(bool{}))>{}} {}
@@ -306,17 +308,19 @@ concept bool conceptify = requires {
 #endif
 
 }  // namespace v1
-}  // namespace boost::ext::te
+}  // namespace te
+}  // namespace ext
+}  // namespace boost
 
 #if not defined(REQUIRES)
-#define REQUIRES(R, name, ...)                                              \
-  R {                                                                       \
-    return ::te::call<R>(                                                   \
-        [](auto&& self, auto&&... args)                                     \
-            -> decltype(self.name(std::forward<decltype(args)>(args)...)) { \
-          return self.name(std::forward<decltype(args)>(args)...);          \
-        },                                                                  \
-        *this, ##__VA_ARGS__);                                              \
+#define REQUIRES(R, name, ...)                                     \
+  R {                                                              \
+    return ::te::call<R>(                                          \
+        [](auto&& self, auto&&... args) -> decltype(               \
+            self.name(std::forward<decltype(args)>(args)...)) {    \
+          return self.name(std::forward<decltype(args)>(args)...); \
+        },                                                         \
+        *this, ##__VA_ARGS__);                                     \
   }
 #endif
 

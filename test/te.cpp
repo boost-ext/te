@@ -9,8 +9,8 @@
 #include <type_traits>
 #include <vector>
 
-#include "common/test.hpp"
 #include "boost/te.hpp"
+#include "common/test.hpp"
 
 namespace te = boost::te;
 
@@ -496,7 +496,6 @@ test should_support_custom_storage = [] {
   }
 };
 
-
 struct DrawableMutable : te::poly<DrawableMutable, te::non_owning_storage> {
   using te::poly<DrawableMutable, te::non_owning_storage>::poly;
 
@@ -506,12 +505,12 @@ struct DrawableMutable : te::poly<DrawableMutable, te::non_owning_storage> {
 };
 
 struct SquareMutable {
-   int value;
+  int value;
 
-   void draw(std::ostream &out) {
-      out << "Square Mutable"; 
-      value += 1;
-   }
+  void draw(std::ostream &out) {
+    out << "Square Mutable";
+    value += 1;
+  }
 };
 
 test should_support_non_owning_storage = [] {
@@ -532,10 +531,10 @@ test should_support_non_owning_storage = [] {
     std::stringstream str{};
     std::vector<DrawableMutable> drawables_mut{b, c};
 
-    for (auto& drawable : drawables_mut) {
+    for (auto &drawable : drawables_mut) {
       draw_mut(drawable, str);
     }
-     
+
     expect("Square MutableSquare Mutable" == str.str());
     expect(1 == b.value);
     expect(1 == c.value);
