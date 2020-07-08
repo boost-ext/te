@@ -1,4 +1,4 @@
-# [Boost].TE <a href="http://www.boost.org/LICENSE_1_0.txt" target="_blank">![Boost Licence](http://img.shields.io/badge/license-boost-blue.svg)</a> <a href="https://travis-ci.org/boost-experimental/te" target="_blank">![Build Status](https://img.shields.io/travis/boost-experimental/te/master.svg?label=linux/osx)</a> <a href="https://codecov.io/gh/boost-experimental/te" target="_blank">![Coveralls](https://codecov.io/gh/boost-experimental/te/branch/master/graph/badge.svg)</a> <a href="http://github.com/boost-experimental/te/issues" target="_blank">![Github Issues](https://img.shields.io/github/issues/boost-experimental/te.svg)</a> <a href="https://godbolt.org/g/8YmMLX">![Try it online](https://img.shields.io/badge/try%20it-online-blue.svg)</a>
+# [Boost::ext].TE <a href="http://www.boost.org/LICENSE_1_0.txt" target="_blank">![Boost Licence](http://img.shields.io/badge/license-boost-blue.svg)</a> <a href="https://travis-ci.org/boost-ext/te" target="_blank">![Build Status](https://img.shields.io/travis/boost-ext/te/master.svg?label=linux/osx)</a> <a href="https://codecov.io/gh/boost-ext/te" target="_blank">![Coveralls](https://codecov.io/gh/boost-ext/te/branch/master/graph/badge.svg)</a> <a href="http://github.com/boost-ext/te/issues" target="_blank">![Github Issues](https://img.shields.io/github/issues/boost-ext/te.svg)</a> <a href="https://godbolt.org/g/8YmMLX">![Try it online](https://img.shields.io/badge/try%20it-online-blue.svg)</a>
 
 > Your C++17 **one header only** run-time polymorphism (type erasure) library with no dependencies, macros and limited boilerplate
 
@@ -10,7 +10,7 @@
 
 ### Quick start
 
-> [Boost].TE requires only one file. Get the latest header [here!](https://github.com/boost-experimental/te/blob/master/include/boost/te.hpp)
+> [Boost::ext].TE requires only one file. Get the latest header [here!](https://github.com/boost-ext/te/blob/master/include/boost/te.hpp)
 
 ```cpp
 #include <boost/te.hpp> // Requires C++17 (Tested: GCC-6+, Clang-4.0+, Apple:Clang-9.1+)
@@ -346,7 +346,7 @@ int main() {
 }
 ```
 
-#### Inject it ([[Boost].DI](https://github.com/boost-experimental/di))
+#### Inject it ([[Boost::ext].DI](https://github.com/boost-ext/di))
 
 ```cpp
 class Example {
@@ -395,4 +395,4 @@ int main() {
 
 ---
 
-**Disclaimer** `[Boost].TE` is not an official Boost library.
+**Disclaimer** `[Boost::ext].TE` is not an official Boost library.

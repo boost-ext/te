@@ -19,7 +19,7 @@
 #include <type_traits>
 #include <utility>
 
-namespace boost::te {
+namespace boost::inline ext::te {
 inline namespace v1 {
 namespace detail {
 template <class...>
@@ -306,7 +306,7 @@ concept bool conceptify = requires {
 #endif
 
 }  // namespace v1
-}  // namespace boost::te
+}  // namespace boost::ext::te
 
 #if not defined(REQUIRES)
 #define REQUIRES(R, name, ...)                                              \
