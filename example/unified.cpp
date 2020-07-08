@@ -18,10 +18,12 @@ struct Drawable {
   void draw(std::ostream &out) const {
     te::call(
         [](auto const &self, auto &out) {
-          if constexpr (std::experimental::is_detected<
-                            drawable_t, decltype(self), decltype(out)>{}) {
-            self.draw(out);
-          } else {
+          if
+            constexpr(std::experimental::is_detected<drawable_t, decltype(self),
+                                                     decltype(out)>{}) {
+              self.draw(out);
+            }
+          else {
             ::draw(self, out);
           }
         },

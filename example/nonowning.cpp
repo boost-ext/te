@@ -15,14 +15,17 @@ namespace te = boost::te;
 struct Drawable : te::poly<Drawable, te::non_owning_storage> {
   using te::poly<Drawable, te::non_owning_storage>::poly;
 
-  void draw(std::ostream &out)  {
+  void draw(std::ostream &out) {
     te::call([](auto &self, auto &out) { self.draw(out); }, *this, out);
   }
 };
 
 struct Square {
   int value;
-  void draw(std::ostream &out) { out << "Square"; value += 1; }
+  void draw(std::ostream &out) {
+    out << "Square";
+    value += 1;
+  }
 };
 
 struct Circle {
