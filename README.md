@@ -6,7 +6,7 @@
 * *Value semantics ([Value vs reference semantics](https://isocpp.org/wiki/faq/value-vs-ref-semantics))*
 * *Automatic memory management (No need for `std::unique_ptr`, `std::shared_ptr`)*
 * *Unified call syntax ([Uniform function call syntax](https://en.wikipedia.org/wiki/Uniform_Function_Call_Syntax))*
-* *Performance ([Better inlining](https://godbolt.org/g/cEX1eL))*
+* *Performance ([Better inlining](https://godbolt.org/z/Tq33Kzzev))*
 
 ### Quick start
 
