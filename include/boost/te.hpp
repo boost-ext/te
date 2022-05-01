@@ -19,6 +19,7 @@
 #include <type_traits>
 #include <utility>
 #include <stdexcept>
+#include <memory>
 
 namespace boost {
 inline namespace ext {
@@ -100,6 +101,17 @@ struct non_owning_storage
   {
   }
   void* ptr = nullptr;
+};
+
+struct shared_storage
+{
+  template <class T, class T_ = std::decay_t<T>>
+  constexpr explicit shared_storage(T &&t) noexcept
+  : ptr{std::make_shared<T_>(std::forward<T>(t))}
+  {
+  }
+
+  std::shared_ptr<void> ptr;
 };
 
 struct dynamic_storage
@@ -417,7 +429,13 @@ class poly : detail::poly_base,
     });
   }
 
-  void* ptr() const { return storage.ptr; }
+  void* ptr() const
+  {
+    if constexpr(std::is_same_v<TStorage, shared_storage>)
+      return storage.ptr.get();
+    else
+      return storage.ptr;
+  }
 
   TStorage storage;
   TVtable vtable;
