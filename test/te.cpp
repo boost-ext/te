@@ -539,6 +539,24 @@ struct Storage {
   ~Storage() { ++calls<Dtor>(); }
 };
 
+test should_support_ref_storage = [] {
+  Storage::calls<Ctor>() = 0;
+  Storage::calls<CopyCtor>() = 0;
+  Storage::calls<MoveCtor>() = 0;
+  Storage::calls<Dtor>() = 0;
+
+  {
+    te::non_owning_storage storage{Storage{}};
+    te::non_owning_storage storage2 = storage;
+    te::non_owning_storage storage3 [[maybe_unused]] = std::move(storage2);
+  }
+
+  expect(1 == Storage::calls<Ctor>());
+  expect(0 == Storage::calls<CopyCtor>());
+  expect(0 == Storage::calls<MoveCtor>());
+  expect(1 == Storage::calls<Dtor>());
+};
+
 test should_support_dynamic_storage = [] {
   Storage::calls<Ctor>() = 0;
   Storage::calls<CopyCtor>() = 0;
@@ -546,13 +564,27 @@ test should_support_dynamic_storage = [] {
   Storage::calls<Dtor>() = 0;
 
   {
-    te::dynamic_storage storage{Storage{}};
+    Storage storage;
+    expect(1 == Storage::calls<Ctor>());
+    expect(0 == Storage::calls<CopyCtor>());
+    expect(0 == Storage::calls<MoveCtor>());
+    expect(0 == Storage::calls<Dtor>());
+    te::dynamic_storage storage1{storage};
+    expect(1 == Storage::calls<Ctor>());
+    expect(1 == Storage::calls<CopyCtor>());
+    expect(0 == Storage::calls<MoveCtor>());
+    expect(0 == Storage::calls<Dtor>());
+    te::dynamic_storage storage2{std::move(storage1)};
+    expect(1 == Storage::calls<Ctor>());
+    expect(1 == Storage::calls<CopyCtor>());
+    expect(0 == Storage::calls<MoveCtor>()); //pointer is moved, not the underlying value
+    expect(0 == Storage::calls<Dtor>());
   }
 
   expect(1 == Storage::calls<Ctor>());
-  expect(0 == Storage::calls<CopyCtor>());
-  expect(1 == Storage::calls<MoveCtor>());
-  expect(2 == Storage::calls<Dtor>());
+  expect(1 == Storage::calls<CopyCtor>());
+  expect(0 == Storage::calls<MoveCtor>());
+  expect(2 == Storage::calls<Dtor>()); // one of the pointers was moved, so only 2 values got deleted
 };
 
 test should_support_local_storage = [] {
