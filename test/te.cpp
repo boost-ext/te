@@ -38,27 +38,6 @@ test should_return_mappings_size = [] {
       te::detail::mappings_size<class Size, std::integral_constant<int, 1>>());
 };
 
-test should_support_void_ptr = [] {
-  te::detail::void_ptr ptr{new int{42}};
-  expect(42 == *ptr.get<int>());
-
-  int &i = *ptr.get<int>();
-  ++i;
-  expect(43 == *ptr.get<int>());
-
-  te::detail::void_ptr copy{ptr};
-  expect(43 == *copy.get<int>());
-
-  te::detail::void_ptr copy_assign = ptr;
-  expect(43 == *copy_assign.get<int>());
-
-  te::detail::void_ptr move{std::move(ptr)};
-  expect(43 == *move.get<int>());
-
-  te::detail::void_ptr move_assign = std::move(ptr);
-  expect(43 == *move.get<int>());
-};
-
 struct Drawable {
   void draw(std::ostream &out) const {
     te::call([](auto const &self, auto &out) { self.draw(out); }, *this, out);
@@ -445,8 +424,7 @@ test should_support_dynamic_storage = [] {
   Storage::calls<Dtor>() = 0;
 
   {
-    te::detail::void_ptr ptr{};
-    te::dynamic_storage storage{Storage{}, ptr};
+    te::dynamic_storage storage{Storage{}};
   }
 
   expect(1 == Storage::calls<Ctor>());
@@ -461,9 +439,8 @@ test should_support_local_storage = [] {
   Storage::calls<MoveCtor>() = 0;
   Storage::calls<Dtor>() = 0;
 
-  {
-    te::detail::void_ptr ptr{};
-    te::local_storage<16> storage{Storage{}, ptr};
+  {;
+    te::local_storage<16> storage{Storage{}};
   }
 
   expect(1 == Storage::calls<Ctor>());
