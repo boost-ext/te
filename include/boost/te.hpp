@@ -95,6 +95,8 @@ inline T exchange(T& obj, U&& new_value)
 
 struct non_owning_storage
 {
+  non_owning_storage() noexcept = default;
+
   template <class T>
   constexpr explicit non_owning_storage(T &&t) noexcept
   : ptr{&t}
@@ -105,6 +107,8 @@ struct non_owning_storage
 
 struct shared_storage
 {
+  shared_storage() noexcept = default;
+
   template <class T, class T_ = std::decay_t<T>>
   constexpr explicit shared_storage(T &&t) noexcept
   : ptr{std::make_shared<T_>(std::forward<T>(t))}
@@ -143,8 +147,7 @@ struct dynamic_storage
 
   constexpr dynamic_storage& operator=(const dynamic_storage& other)
   {
-    if (ptr)
-      del(ptr);
+    reset();
     ptr  = other.ptr ? other.copy(other.ptr) : nullptr;
     del  = other.del;
     copy = other.copy;
@@ -160,8 +163,7 @@ struct dynamic_storage
 
   constexpr dynamic_storage& operator=(dynamic_storage&& other)
   {
-    if (ptr)
-      del(ptr);
+    reset();
     ptr   = detail::exchange(other.ptr, nullptr);
     del   = detail::exchange(other.del, nullptr);
     copy  = detail::exchange(other.copy, nullptr);
@@ -170,8 +172,14 @@ struct dynamic_storage
 
   ~dynamic_storage()
   {
+    reset();
+  }
+
+  void reset()
+  {
     if (ptr)
       del(ptr);
+    ptr = nullptr;
   }
 
   void* ptr                     = nullptr;
@@ -218,8 +226,7 @@ struct local_storage
 
   constexpr local_storage& operator=(const local_storage& other)
   {
-    if (ptr)
-      del(&data);
+    reset();
     ptr  = other.ptr ? other.copy(other.ptr, &data) : nullptr;
     del  = other.del;
     copy = other.copy;
@@ -237,8 +244,7 @@ struct local_storage
 
   constexpr local_storage& operator=(local_storage&& other)
   {
-    if (ptr)
-      del(&data);
+    reset();
     ptr  = other.ptr ? other.move(other.ptr, &data) : nullptr;
     del  = other.del;
     copy = other.copy;
@@ -248,8 +254,14 @@ struct local_storage
 
   ~local_storage()
   {
+    reset();
+  }
+
+  void reset()
+  {
     if (ptr)
       del(&data);
+    ptr = nullptr;
   }
 
   std::aligned_storage_t<Size, Alignment> data;
@@ -324,8 +336,7 @@ struct sbo_storage
 
   constexpr sbo_storage& operator=(const sbo_storage& other)
   {
-    if (ptr)
-      del(ptr, &data);
+    reset();
     ptr  = other.ptr ? other.copy(other.ptr, &data) : nullptr;
     del  = other.del;
     copy = other.copy;
@@ -343,8 +354,7 @@ struct sbo_storage
 
   constexpr sbo_storage& operator=(sbo_storage&& other)
   {
-    if (ptr)
-      del(ptr, &data);
+    reset();
     ptr  = other.ptr ? other.move(other.ptr, &data) : nullptr;
     del  = other.del;
     copy = other.copy;
@@ -354,8 +364,14 @@ struct sbo_storage
 
   ~sbo_storage()
   {
+    reset();
+  }
+
+  void reset()
+  {
     if (ptr)
       del(ptr, &data);
+    ptr = nullptr;
   }
 
   std::aligned_storage_t<Size, Alignment> data;

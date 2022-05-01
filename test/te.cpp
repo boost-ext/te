@@ -178,6 +178,10 @@ struct SquareNoncopyable {
   void draw(std::ostream &out) const { out << "Square"; }
 };
 
+struct TriangleCopyable {
+  void draw(std::ostream &out) const { out << "Triangle"; }
+};
+
 test should_support_movable_only_types = [] {
   te::poly<Drawable> drawable = CircleNoncopyable{};
 
@@ -192,6 +196,30 @@ test should_support_movable_only_types = [] {
     drawable = SquareNoncopyable{};
     drawable.draw(str);
     expect("Square" == str.str());
+  }
+
+  te::poly<Drawable> drawable2 = SquareNoncopyable{}; //need this as te::poly is not default constructible yet
+
+  {
+    try {
+      /*! Try to copy. This should throw as SquareNoncopyable is non-copyable !*/
+      drawable2 = drawable;
+      expect(false);
+    } catch(const std::exception&) {
+      expect(true);
+    }
+  }
+
+  drawable2 = TriangleCopyable{};
+
+  {
+    try {
+      /*! Try to copy. This should succeed as TriangeCopyable is copyable !*/
+      drawable = drawable2;
+      expect(true);
+    } catch (const std::exception &) {
+      expect(false);
+    }
   }
 };
 
@@ -209,6 +237,100 @@ test should_support_movable_only_types_with_local_storage = [] {
     drawable = SquareNoncopyable{};
     drawable.draw(str);
     expect("Square" == str.str());
+  }
+
+  te::poly<Drawable, te::local_storage<32>> drawable2 = SquareNoncopyable{}; //need this as te::poly is not default constructible yet
+
+  {
+    try {
+      /*! Try to copy. This should throw as SquareNoncopyable is non-copyable !*/
+      drawable2 = drawable;
+      expect(false);
+    } catch(const std::exception&) {
+      expect(true);
+    }
+  }
+
+  drawable2 = TriangleCopyable{};
+
+  {
+    try {
+      /*! Try to copy. This should succeed as TriangeCopyable is copyable !*/
+      drawable = drawable2;
+      expect(true);
+    } catch (const std::exception &) {
+      expect(false);
+    }
+  }
+};
+
+test should_support_movable_only_types_with_sbo_storage = [] {
+  te::poly<Drawable, te::sbo_storage<32>> drawable = CircleNoncopyable{};
+
+  {
+    std::stringstream str{};
+    drawable.draw(str);
+    expect("Circle" == str.str());
+  }
+
+  {
+    std::stringstream str{};
+    drawable = SquareNoncopyable{};
+    drawable.draw(str);
+    expect("Square" == str.str());
+  }
+
+  te::poly<Drawable, te::sbo_storage<32>> drawable2 = SquareNoncopyable{}; //need this as te::poly is not default constructible yet
+
+  {
+    try {
+      /*! Try to copy. This should throw as SquareNoncopyable is non-copyable !*/
+      drawable2 = drawable;
+      expect(false);
+    } catch(const std::exception&) {
+      expect(true);
+    }
+  }
+
+  drawable2 = TriangleCopyable{};
+
+  {
+    try {
+      /*! Try to copy. This should succeed as TriangeCopyable is copyable !*/
+      drawable = drawable2;
+      expect(true);
+    } catch (const std::exception &) {
+      expect(false);
+    }
+  }
+};
+
+test should_support_movable_only_types_with_shared_storage = [] {
+  te::poly<Drawable, te::shared_storage> drawable = CircleNoncopyable{};
+
+  {
+    std::stringstream str{};
+    drawable.draw(str);
+    expect("Circle" == str.str());
+  }
+
+  {
+    std::stringstream str{};
+    drawable = SquareNoncopyable{};
+    drawable.draw(str);
+    expect("Square" == str.str());
+  }
+
+  te::poly<Drawable, te::shared_storage> drawable2 = CircleNoncopyable{}; //need to assign to something as te::poly is not default constructible yet.
+
+  {
+    try {
+      /*! Copying is fine with shared_storage !*/
+      drawable2 = drawable;
+      expect(true);
+    } catch (const std::exception &) {
+      expect(false);
+    }
   }
 };
 
@@ -449,6 +571,38 @@ test should_support_local_storage = [] {
   expect(2 == Storage::calls<Dtor>());
 };
 
+test should_support_sbo_storage = [] {
+  Storage::calls<Ctor>() = 0;
+  Storage::calls<CopyCtor>() = 0;
+  Storage::calls<MoveCtor>() = 0;
+  Storage::calls<Dtor>() = 0;
+
+  {;
+    te::sbo_storage<16> storage{Storage{}};
+  }
+
+  expect(1 == Storage::calls<Ctor>());
+  expect(0 == Storage::calls<CopyCtor>());
+  expect(1 == Storage::calls<MoveCtor>());
+  expect(2 == Storage::calls<Dtor>());
+};
+
+test should_support_shared_storage = [] {
+  Storage::calls<Ctor>() = 0;
+  Storage::calls<CopyCtor>() = 0;
+  Storage::calls<MoveCtor>() = 0;
+  Storage::calls<Dtor>() = 0;
+
+  {;
+    te::shared_storage storage{Storage{}};
+  }
+
+  expect(1 == Storage::calls<Ctor>());
+  expect(0 == Storage::calls<CopyCtor>());
+  expect(1 == Storage::calls<MoveCtor>());
+  expect(2 == Storage::calls<Dtor>());
+};
+
 test should_support_custom_storage = [] {
   {
     te::poly<Addable> addable_def{Calc{}};
@@ -466,6 +620,28 @@ test should_support_custom_storage = [] {
     expect(46 == addable_local.add(40, 2));
 
     te::poly<Addable, te::local_storage<16>> addable_copy_local{addable_local};
+    expect(46 == addable_copy_local.add(40, 2));
+
+    te::poly<Addable> addable_move_local{std::move(addable_local)};
+    expect(46 == addable_move_local.add(40, 2));
+  }
+
+  {
+    te::poly<Addable, te::sbo_storage<16>> addable_local{Calc{4}};
+    expect(46 == addable_local.add(40, 2));
+
+    te::poly<Addable, te::sbo_storage<16>> addable_copy_local{addable_local};
+    expect(46 == addable_copy_local.add(40, 2));
+
+    te::poly<Addable> addable_move_local{std::move(addable_local)};
+    expect(46 == addable_move_local.add(40, 2));
+  }
+
+  {
+    te::poly<Addable, te::shared_storage> addable_local{Calc{4}};
+    expect(46 == addable_local.add(40, 2));
+
+    te::poly<Addable, te::shared_storage> addable_copy_local{addable_local};
     expect(46 == addable_copy_local.add(40, 2));
 
     te::poly<Addable> addable_move_local{std::move(addable_local)};
