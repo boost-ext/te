@@ -159,10 +159,12 @@ struct dynamic_storage
 
   constexpr dynamic_storage& operator=(const dynamic_storage& other)
   {
-    reset();
-    ptr  = other.ptr ? other.copy(other.ptr) : nullptr;
-    del  = other.del;
-    copy = other.copy;
+    if (other.ptr != ptr) {
+      reset();
+      ptr   = other.ptr ? other.copy(other.ptr) : nullptr;
+      del   = other.del;
+      copy  = other.copy;
+    }
     return *this;
   }
 
@@ -175,10 +177,12 @@ struct dynamic_storage
 
   constexpr dynamic_storage& operator=(dynamic_storage&& other)
   {
-    reset();
-    ptr   = detail::exchange(other.ptr, nullptr);
-    del   = detail::exchange(other.del, nullptr);
-    copy  = detail::exchange(other.copy, nullptr);
+    if (other.ptr != ptr) {
+      reset();
+      ptr   = detail::exchange(other.ptr, nullptr);
+      del   = detail::exchange(other.del, nullptr);
+      copy  = detail::exchange(other.copy, nullptr);
+    }
     return *this;
   }
 
@@ -242,11 +246,13 @@ struct local_storage
 
   constexpr local_storage& operator=(const local_storage& other)
   {
-    reset();
-    ptr  = other.ptr ? other.copy(other.ptr, &data) : nullptr;
-    del  = other.del;
-    copy = other.copy;
-    move = other.move;
+    if (other.ptr != ptr) {
+      reset();
+      ptr   = other.ptr ? other.copy(other.ptr, &data) : nullptr;
+      del   = other.del;
+      copy  = other.copy;
+      move  = other.move;
+    }
     return *this;
   }
 
@@ -260,11 +266,13 @@ struct local_storage
 
   constexpr local_storage& operator=(local_storage&& other)
   {
-    reset();
-    ptr  = other.ptr ? other.move(other.ptr, &data) : nullptr;
-    del  = other.del;
-    copy = other.copy;
-    move = other.move;
+    if (other.ptr != ptr) {
+      reset();
+      ptr   = other.ptr ? other.move(other.ptr, &data) : nullptr;
+      del   = other.del;
+      copy  = other.copy;
+      move  = other.move;
+    }
     return *this;
   }
 
@@ -356,11 +364,13 @@ struct sbo_storage
 
   constexpr sbo_storage& operator=(const sbo_storage& other)
   {
-    reset();
-    ptr  = other.ptr ? other.copy(other.ptr, &data) : nullptr;
-    del  = other.del;
-    copy = other.copy;
-    move = other.move;
+    if (other.ptr != ptr) {
+      reset();
+      ptr   = other.ptr ? other.copy(other.ptr, &data) : nullptr;
+      del   = other.del;
+      copy  = other.copy;
+      move  = other.move;
+    }
     return *this;
   }
 
@@ -374,11 +384,13 @@ struct sbo_storage
 
   constexpr sbo_storage& operator=(sbo_storage&& other)
   {
-    reset();
-    ptr  = other.ptr ? other.move(other.ptr, &data) : nullptr;
-    del  = other.del;
-    copy = other.copy;
-    move = other.move;
+    if (other.ptr != ptr) {
+      reset();
+      ptr   = other.ptr ? other.move(other.ptr, &data) : nullptr;
+      del   = other.del;
+      copy  = other.copy;
+      move  = other.move;
+    }
     return *this;
   }
 

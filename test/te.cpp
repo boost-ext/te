@@ -8,6 +8,7 @@
 #include <sstream>
 #include <type_traits>
 #include <vector>
+#include <cstring>
 
 #include "boost/te.hpp"
 #include "common/test.hpp"
@@ -332,6 +333,34 @@ test should_support_movable_only_types_with_shared_storage = [] {
       expect(false);
     }
   }
+};
+
+struct IStringy
+{
+  const char* c_str() const { return te::call<const char*>([](auto const &self) { return self.c_str(); }, *this); }
+};
+
+template<typename Stringy>
+void self_assignment()
+{
+  std::string str{"hello world"};
+  Stringy str1{str};
+
+  expect(std::strcmp(str1.c_str(), str.c_str()) == 0); //this line is not really necessary, but why not, may as well test.
+  Stringy& str2 = str1;
+  str1 = str2; //self copy assignment
+  expect(std::strcmp(str1.c_str(), str.c_str()) == 0); //we're testing that nothing has been deleted or messed up
+  str2 = std::move(str1); //self move assignment
+  expect(std::strcmp(str2.c_str(), str.c_str()) == 0); //we're testing that nothing has been deleted or messed up
+}
+
+test test_self_assignment = [] {
+  self_assignment<te::poly<IStringy, te::non_owning_storage>>();
+  self_assignment<te::poly<IStringy, te::shared_storage>>();
+  self_assignment<te::poly<IStringy, te::dynamic_storage>>();
+  self_assignment<te::poly<IStringy, te::local_storage<64>>>();
+  self_assignment<te::poly<IStringy, te::sbo_storage<4>>>(); //heap is used
+  self_assignment<te::poly<IStringy, te::sbo_storage<64>>>(); //stack is used
 };
 
 test should_support_containers = [] {
