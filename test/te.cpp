@@ -537,6 +537,8 @@ struct Storage {
   Storage(const Storage &) { ++calls<CopyCtor>(); }
   Storage(Storage &&) { ++calls<MoveCtor>(); }
   ~Storage() { ++calls<Dtor>(); }
+
+  double someDummyDataSoTypeIsNonEmpty = 0;
 };
 
 test should_support_ref_storage = [] {
@@ -563,28 +565,35 @@ test should_support_dynamic_storage = [] {
   Storage::calls<MoveCtor>() = 0;
   Storage::calls<Dtor>() = 0;
 
+  using storage = te::dynamic_storage;
+
   {
-    Storage storage;
+    Storage storage0;
     expect(1 == Storage::calls<Ctor>());
     expect(0 == Storage::calls<CopyCtor>());
     expect(0 == Storage::calls<MoveCtor>());
     expect(0 == Storage::calls<Dtor>());
-    te::dynamic_storage storage1{storage};
+    storage storage1{storage0};
     expect(1 == Storage::calls<Ctor>());
     expect(1 == Storage::calls<CopyCtor>());
     expect(0 == Storage::calls<MoveCtor>());
     expect(0 == Storage::calls<Dtor>());
-    te::dynamic_storage storage2{std::move(storage1)};
+    storage storage2{storage1};
     expect(1 == Storage::calls<Ctor>());
-    expect(1 == Storage::calls<CopyCtor>());
+    expect(2 == Storage::calls<CopyCtor>());
+    expect(0 == Storage::calls<MoveCtor>());
+    expect(0 == Storage::calls<Dtor>());
+    storage storage3{std::move(storage2)};
+    expect(1 == Storage::calls<Ctor>());
+    expect(2 == Storage::calls<CopyCtor>());
     expect(0 == Storage::calls<MoveCtor>()); //pointer is moved, not the underlying value
     expect(0 == Storage::calls<Dtor>());
   }
 
   expect(1 == Storage::calls<Ctor>());
-  expect(1 == Storage::calls<CopyCtor>());
+  expect(2 == Storage::calls<CopyCtor>());
   expect(0 == Storage::calls<MoveCtor>());
-  expect(2 == Storage::calls<Dtor>()); // one of the pointers was moved, so only 2 values got deleted
+  expect(3 == Storage::calls<Dtor>()); // one of the pointers was moved, so only 2 values got deleted
 };
 
 test should_support_local_storage = [] {
@@ -593,30 +602,109 @@ test should_support_local_storage = [] {
   Storage::calls<MoveCtor>() = 0;
   Storage::calls<Dtor>() = 0;
 
-  {;
-    te::local_storage<16> storage{Storage{}};
+  using storage = te::local_storage<16>;
+
+  {
+    Storage storage0;
+    expect(1 == Storage::calls<Ctor>());
+    expect(0 == Storage::calls<CopyCtor>());
+    expect(0 == Storage::calls<MoveCtor>());
+    expect(0 == Storage::calls<Dtor>());
+    storage storage1{storage0};
+    expect(1 == Storage::calls<Ctor>());
+    expect(1 == Storage::calls<CopyCtor>());
+    expect(0 == Storage::calls<MoveCtor>());
+    expect(0 == Storage::calls<Dtor>());
+    storage storage2{storage1};
+    expect(1 == Storage::calls<Ctor>());
+    expect(2 == Storage::calls<CopyCtor>());
+    expect(0 == Storage::calls<MoveCtor>());
+    expect(0 == Storage::calls<Dtor>());
+    storage storage3{std::move(storage2)};
+    expect(1 == Storage::calls<Ctor>());
+    expect(2 == Storage::calls<CopyCtor>());
+    expect(1 == Storage::calls<MoveCtor>());
+    expect(0 == Storage::calls<Dtor>());
   }
 
   expect(1 == Storage::calls<Ctor>());
-  expect(0 == Storage::calls<CopyCtor>());
+  expect(2 == Storage::calls<CopyCtor>());
   expect(1 == Storage::calls<MoveCtor>());
-  expect(2 == Storage::calls<Dtor>());
+  expect(4 == Storage::calls<Dtor>());
 };
 
-test should_support_sbo_storage = [] {
+test should_support_sbo_storage_small = [] {
   Storage::calls<Ctor>() = 0;
   Storage::calls<CopyCtor>() = 0;
   Storage::calls<MoveCtor>() = 0;
   Storage::calls<Dtor>() = 0;
 
-  {;
-    te::sbo_storage<16> storage{Storage{}};
+  using storage = te::sbo_storage<8>;
+
+  {
+    Storage storage0;
+    expect(1 == Storage::calls<Ctor>());
+    expect(0 == Storage::calls<CopyCtor>());
+    expect(0 == Storage::calls<MoveCtor>());
+    expect(0 == Storage::calls<Dtor>());
+    storage storage1{storage0};
+    expect(1 == Storage::calls<Ctor>());
+    expect(1 == Storage::calls<CopyCtor>());
+    expect(0 == Storage::calls<MoveCtor>());
+    expect(0 == Storage::calls<Dtor>());
+    storage storage2{storage1};
+    expect(1 == Storage::calls<Ctor>());
+    expect(2 == Storage::calls<CopyCtor>());
+    expect(0 == Storage::calls<MoveCtor>());
+    expect(0 == Storage::calls<Dtor>());
+    storage storage3{std::move(storage2)};
+    expect(1 == Storage::calls<Ctor>());
+    expect(2 == Storage::calls<CopyCtor>());
+    expect(1 == Storage::calls<MoveCtor>()); //sbo success so value is moved
+    expect(0 == Storage::calls<Dtor>());
   }
 
   expect(1 == Storage::calls<Ctor>());
-  expect(0 == Storage::calls<CopyCtor>());
+  expect(2 == Storage::calls<CopyCtor>());
   expect(1 == Storage::calls<MoveCtor>());
-  expect(2 == Storage::calls<Dtor>());
+  expect(4 == Storage::calls<Dtor>()); //sbo success so all values got destructed
+};
+
+test should_support_sbo_storage_large = [] {
+  Storage::calls<Ctor>() = 0;
+  Storage::calls<CopyCtor>() = 0;
+  Storage::calls<MoveCtor>() = 0;
+  Storage::calls<Dtor>() = 0;
+
+  using storage = te::sbo_storage<2>;
+
+  {
+    Storage storage0;
+    expect(1 == Storage::calls<Ctor>());
+    expect(0 == Storage::calls<CopyCtor>());
+    expect(0 == Storage::calls<MoveCtor>());
+    expect(0 == Storage::calls<Dtor>());
+    storage storage1{storage0};
+    expect(1 == Storage::calls<Ctor>());
+    expect(1 == Storage::calls<CopyCtor>());
+    expect(0 == Storage::calls<MoveCtor>());
+    expect(0 == Storage::calls<Dtor>());
+    storage storage2{storage1};
+    expect(1 == Storage::calls<Ctor>());
+    expect(2 == Storage::calls<CopyCtor>());
+    expect(0 == Storage::calls<MoveCtor>());
+    expect(0 == Storage::calls<Dtor>());
+    storage storage3{std::move(storage2)};
+    expect(1 == Storage::calls<Ctor>());
+    expect(2 == Storage::calls<CopyCtor>());
+    expect(0 == Storage::calls<MoveCtor>()); //sbo fail so pointer is moved
+    expect(0 == Storage::calls<Dtor>());
+  }
+
+  expect(1 == Storage::calls<Ctor>());
+  expect(2 == Storage::calls<CopyCtor>());
+  expect(0 == Storage::calls<MoveCtor>());
+  expect(3 == Storage::calls<Dtor>()); //sbo fail so only 3 values got destructed
 };
 
 test should_support_shared_storage = [] {
@@ -625,13 +713,34 @@ test should_support_shared_storage = [] {
   Storage::calls<MoveCtor>() = 0;
   Storage::calls<Dtor>() = 0;
 
-  {;
-    te::shared_storage storage{Storage{}};
+  using storage = te::shared_storage;
+
+  {
+    Storage storage0;
+    expect(1 == Storage::calls<Ctor>());
+    expect(0 == Storage::calls<CopyCtor>());
+    expect(0 == Storage::calls<MoveCtor>());
+    expect(0 == Storage::calls<Dtor>());
+    storage storage1{storage0};
+    expect(1 == Storage::calls<Ctor>());
+    expect(1 == Storage::calls<CopyCtor>());
+    expect(0 == Storage::calls<MoveCtor>());
+    expect(0 == Storage::calls<Dtor>());
+    storage storage2{storage1};
+    expect(1 == Storage::calls<Ctor>());
+    expect(1 == Storage::calls<CopyCtor>());
+    expect(0 == Storage::calls<MoveCtor>());
+    expect(0 == Storage::calls<Dtor>());
+    storage storage3{std::move(storage2)};
+    expect(1 == Storage::calls<Ctor>());
+    expect(1 == Storage::calls<CopyCtor>());
+    expect(0 == Storage::calls<MoveCtor>());
+    expect(0 == Storage::calls<Dtor>());
   }
 
   expect(1 == Storage::calls<Ctor>());
-  expect(0 == Storage::calls<CopyCtor>());
-  expect(1 == Storage::calls<MoveCtor>());
+  expect(1 == Storage::calls<CopyCtor>());
+  expect(0 == Storage::calls<MoveCtor>());
   expect(2 == Storage::calls<Dtor>());
 };
 

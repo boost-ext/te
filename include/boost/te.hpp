@@ -97,7 +97,11 @@ struct non_owning_storage
 {
   non_owning_storage() noexcept = default;
 
-  template <class T>
+  template <
+    class T,
+    class T_ = std::decay_t<T>,
+    std::enable_if_t<!std::is_same_v<T_,non_owning_storage>, bool> = true
+  >
   constexpr explicit non_owning_storage(T &&t) noexcept
   : ptr{&t}
   {
@@ -109,7 +113,11 @@ struct shared_storage
 {
   shared_storage() noexcept = default;
 
-  template <class T, class T_ = std::decay_t<T>>
+  template <
+    class T,
+    class T_ = std::decay_t<T>,
+    std::enable_if_t<!std::is_same_v<T_,shared_storage>, bool> = true
+  >
   constexpr explicit shared_storage(T &&t) noexcept
   : ptr{std::make_shared<T_>(std::forward<T>(t))}
   {
@@ -122,7 +130,11 @@ struct dynamic_storage
 {
   dynamic_storage() noexcept = default;
 
-  template <class T, class T_ = std::decay_t<T> >
+  template <
+    class T,
+    class T_ = std::decay_t<T>,
+    std::enable_if_t<!std::is_same_v<T_,dynamic_storage>, bool> = true
+  >
   explicit dynamic_storage(T &&t)
       noexcept(noexcept(std::is_nothrow_constructible_v<T_,T>))
   : ptr{new T_{std::forward<T>(t)}},
@@ -192,7 +204,11 @@ struct local_storage
 {
   local_storage() noexcept = default;
 
-  template <class T, class T_ = std::decay_t<T> >
+  template <
+    class T,
+    class T_ = std::decay_t<T>,
+    std::enable_if_t<!std::is_same_v<T_,local_storage>, bool> = true
+  >
   constexpr explicit local_storage(T &&t)
       noexcept(noexcept(std::is_nothrow_constructible_v<T_,T>))
   : ptr{new (&data) T_{std::forward<T>(t)}},
@@ -279,7 +295,11 @@ struct sbo_storage
 
   sbo_storage() noexcept = default;
 
-  template <class T, class T_ = std::decay_t<T> >
+  template <
+    class T,
+    class T_ = std::decay_t<T>,
+    std::enable_if_t<!std::is_same_v<T_,sbo_storage>, bool> = true
+  >
   constexpr explicit sbo_storage(T &&t)
   : sbo_storage()
   {
