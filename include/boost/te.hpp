@@ -298,52 +298,52 @@ struct sbo_storage
   template <
     class T,
     class T_ = std::decay_t<T>,
-    std::enable_if_t<!std::is_same_v<T_,sbo_storage>, bool> = true
+    std::enable_if_t<!std::is_same_v<T_,sbo_storage>, bool> = true,
+    std::enable_if_t<type_fits<T_>::value, bool> = true
   >
   constexpr explicit sbo_storage(T &&t)
-  : sbo_storage()
+      noexcept(noexcept(std::is_nothrow_constructible_v<T_,T>))
+  : ptr{new (&data) T_{std::forward<T>(t)}},
+    del{[](void*, void* mem) {
+      reinterpret_cast<T_ *>(mem)->~T_();
+    }},
+    copy{[](const void* self, void* mem) -> void* {
+      if constexpr(std::is_copy_constructible_v<T_>)
+        return new (mem) T_{*reinterpret_cast<const T_ *>(self)};
+      else
+        throw std::runtime_error("sbo_storage : erased type is not copy constructible");
+    }},
+    move{[](void*& self, void* mem) -> void* {
+      if constexpr(std::is_move_constructible_v<T_>)
+        return new (mem) T_{std::move(*reinterpret_cast<T_ *>(self))};
+      else
+        throw std::runtime_error("sbo_storage : erased type is not move constructible");
+    }}
   {
-    if constexpr (type_fits<T_>::value)
-    {
-      ptr = new (&data) T_{std::forward<T>(t)};
+  }
 
-      del = [](void*, void* mem) {
-        reinterpret_cast<T_ *>(mem)->~T_();
-      };
-
-      copy = [](const void* self, void* mem) -> void* {
-        if constexpr(std::is_copy_constructible_v<T_>)
-          return new (mem) T_{*reinterpret_cast<const T_ *>(self)};
-        else
-          throw std::runtime_error("sbo_storage : erased type is not copy constructible");
-      };
-
-      move = [](void*& self, void* mem) -> void* {
-        if constexpr(std::is_move_constructible_v<T_>)
-          return new (mem) T_{std::move(*reinterpret_cast<T_ *>(self))};
-        else
-          throw std::runtime_error("sbo_storage : erased type is not move constructible");
-      };
-    }
-    else
-    {
-      ptr = new T_{std::forward<T>(t)};
-
-      del = [](void* self, void*) {
-        delete reinterpret_cast<T_ *>(self);
-      };
-
-      copy = [](const void* self, void*) -> void* {
-        if constexpr(std::is_copy_constructible_v<T_>)
-          return new T_{*reinterpret_cast<const T_*>(self)};
-        else
-          throw std::runtime_error("dynamic_storage : erased type is not copy constructible");
-      };
-
-      move = [](void*& self, void*) {
-        return detail::exchange(self, nullptr);
-      };
-    };
+  template <
+    class T,
+    class T_ = std::decay_t<T>,
+    std::enable_if_t<!std::is_same_v<T_,sbo_storage>, bool> = true,
+    std::enable_if_t<!type_fits<T_>::value, bool> = true
+  >
+  constexpr explicit sbo_storage(T &&t)
+      noexcept(noexcept(std::is_nothrow_constructible_v<T_,T>))
+  : ptr{new T_{std::forward<T>(t)}},
+    del{[](void* self, void*) {
+      delete reinterpret_cast<T_ *>(self);
+    }},
+    copy{[](const void* self, void*) -> void* {
+      if constexpr(std::is_copy_constructible_v<T_>)
+        return new T_{*reinterpret_cast<const T_*>(self)};
+      else
+        throw std::runtime_error("dynamic_storage : erased type is not copy constructible");
+    }},
+    move{[](void*& self, void*) {
+      return detail::exchange(self, nullptr);
+    }}
+  {
   }
 
   constexpr sbo_storage(const sbo_storage& other)
