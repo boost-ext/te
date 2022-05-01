@@ -107,7 +107,8 @@ struct dynamic_storage
   dynamic_storage() noexcept = default;
 
   template <class T, class T_ = std::decay_t<T> >
-  explicit dynamic_storage(T &&t) noexcept
+  explicit dynamic_storage(T &&t)
+      noexcept(noexcept(std::is_nothrow_constructible_v<T_,T>))
   : ptr{new T_{std::forward<T>(t)}},
     del{[](void *self) {
       delete reinterpret_cast<T_ *>(self);
@@ -172,10 +173,11 @@ struct local_storage
   local_storage() noexcept = default;
 
   template <class T, class T_ = std::decay_t<T> >
-  constexpr explicit local_storage(T &&t) noexcept
+  constexpr explicit local_storage(T &&t)
+      noexcept(noexcept(std::is_nothrow_constructible_v<T_,T>))
   : ptr{new (&data) T_{std::forward<T>(t)}},
-    del{[](void* self) {
-      reinterpret_cast<T_ *>(self)->~T_();
+    del{[](void* mem) {
+      reinterpret_cast<T_ *>(mem)->~T_();
     }},
     copy{[](const void* self, void* mem) -> void* {
       if constexpr(std::is_copy_constructible_v<T_>)
@@ -205,7 +207,7 @@ struct local_storage
   constexpr local_storage& operator=(const local_storage& other)
   {
     if (ptr)
-      del(ptr);
+      del(&data);
     ptr  = other.ptr ? other.copy(other.ptr, &data) : nullptr;
     del  = other.del;
     copy = other.copy;
@@ -224,7 +226,7 @@ struct local_storage
   constexpr local_storage& operator=(local_storage&& other)
   {
     if (ptr)
-      del(ptr);
+      del(&data);
     ptr  = other.ptr ? other.move(other.ptr, &data) : nullptr;
     del  = other.del;
     copy = other.copy;
@@ -235,7 +237,7 @@ struct local_storage
   ~local_storage()
   {
     if (ptr)
-      del(ptr);
+      del(&data);
   }
 
   std::aligned_storage_t<Size, Alignment> data;
@@ -243,6 +245,113 @@ struct local_storage
   void  (*del)(void*)                   = nullptr;
   void* (*copy)(const void*, void* mem) = nullptr;
   void* (*move)(void*, void* mem)       = nullptr;
+};
+
+template <std::size_t Size, std::size_t Alignment = 8>
+struct sbo_storage
+{
+  template<typename T_>
+  struct type_fits : std::integral_constant<bool, sizeof(T_) <= Size && Alignment % alignof(T_) == 0>{};
+
+  sbo_storage() noexcept = default;
+
+  template <class T, class T_ = std::decay_t<T> >
+  constexpr explicit sbo_storage(T &&t)
+      noexcept(noexcept(std::is_nothrow_constructible_v<T_,T>))
+  : sbo_storage()
+  {
+    if constexpr (type_fits<T_>::value)
+    {
+      ptr = new (&data) T_{std::forward<T>(t)};
+
+      del = [](void*, void* mem) {
+        reinterpret_cast<T_ *>(mem)->~T_();
+      };
+
+      copy = [](const void* self, void* mem) -> void* {
+        if constexpr(std::is_copy_constructible_v<T_>)
+          return new (mem) T_{*reinterpret_cast<const T_ *>(self)};
+        else
+          throw std::runtime_error("sbo_storage : erased type is not copy constructible");
+      };
+
+      move = [](void*& self, void* mem) -> void* {
+        if constexpr(std::is_move_constructible_v<T_>)
+          return new (mem) T_{std::move(*reinterpret_cast<T_ *>(self))};
+        else
+          throw std::runtime_error("sbo_storage : erased type is not move constructible");
+      };
+    }
+    else
+    {
+      ptr = new T_{std::forward<T>(t)};
+
+      del = [](void* self, void*) {
+        delete reinterpret_cast<T_ *>(self);
+      };
+
+      copy = [](const void* self, void*) -> void* {
+        if constexpr(std::is_copy_constructible_v<T_>)
+          return new T_{*reinterpret_cast<const T_*>(self)};
+        else
+          throw std::runtime_error("dynamic_storage : erased type is not copy constructible");
+      };
+
+      move = [](void*& self, void*) {
+        return detail::exchange(self, nullptr);
+      };
+    };
+  }
+
+  constexpr sbo_storage(const sbo_storage& other)
+    : ptr{other.ptr ? other.copy(other.ptr, &data) : nullptr},
+      del{other.del},
+      copy{other.copy},
+      move{other.move}
+  {
+  }
+
+  constexpr sbo_storage& operator=(const sbo_storage& other)
+  {
+    if (ptr)
+      del(ptr, &data);
+    ptr  = other.ptr ? other.copy(other.ptr, &data) : nullptr;
+    del  = other.del;
+    copy = other.copy;
+    move = other.move;
+    return *this;
+  }
+
+  constexpr sbo_storage(sbo_storage&& other)
+    : ptr{other.ptr ? other.move(other.ptr, &data) : nullptr},
+      del{other.del},
+      copy{other.copy},
+      move{other.move}
+  {
+  }
+
+  constexpr sbo_storage& operator=(sbo_storage&& other)
+  {
+    if (ptr)
+      del(ptr, &data);
+    ptr  = other.ptr ? other.move(other.ptr, &data) : nullptr;
+    del  = other.del;
+    copy = other.copy;
+    move = other.move;
+    return *this;
+  }
+
+  ~sbo_storage()
+  {
+    if (ptr)
+      del(ptr, &data);
+  }
+
+  std::aligned_storage_t<Size, Alignment> data;
+  void* ptr                         = nullptr;
+  void  (*del)(void*, void*)        = nullptr;
+  void* (*copy)(const void*, void*) = nullptr;
+  void* (*move)(void*&, void*)      = nullptr;
 };
 
 class static_vtable {
