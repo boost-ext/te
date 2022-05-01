@@ -257,7 +257,6 @@ struct sbo_storage
 
   template <class T, class T_ = std::decay_t<T> >
   constexpr explicit sbo_storage(T &&t)
-      noexcept(noexcept(std::is_nothrow_constructible_v<T_,T>))
   : sbo_storage()
   {
     if constexpr (type_fits<T_>::value)
