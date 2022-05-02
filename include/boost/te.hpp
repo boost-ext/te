@@ -435,7 +435,7 @@ class poly : detail::poly_base,
     class T_ = std::decay_t<T>,
     class = std::enable_if_t<not std::is_convertible<T_, poly>{}>
   >
-  constexpr poly(T &&t) noexcept(std::is_nothrow_constructible_v<T_,T>)
+  constexpr poly(T &&t)
       : poly{std::forward<T>(t),
              detail::type_list<decltype(detail::requires__<I>(bool{}))>{}} {}
 
@@ -451,7 +451,7 @@ class poly : detail::poly_base,
     class T_ = std::decay_t<T>,
     class TRequires
   >
-  constexpr poly(T &&t, const TRequires) noexcept(std::is_nothrow_constructible_v<T_,T>)
+  constexpr poly(T &&t, const TRequires)
       : poly{std::forward<T>(t),
              std::make_index_sequence<detail::mappings_size<I>()>{}} {}
 
@@ -460,7 +460,7 @@ class poly : detail::poly_base,
     class T_ = std::decay_t<T>,
     std::size_t... Ns
   >
-  constexpr poly(T &&t, std::index_sequence<Ns...>) noexcept(std::is_nothrow_constructible_v<T_,T>)
+  constexpr poly(T &&t, std::index_sequence<Ns...>)
       : detail::poly_base{},
         vtable{std::forward<T>(t), vptr,
                std::integral_constant<std::size_t, sizeof...(Ns)>{}},
