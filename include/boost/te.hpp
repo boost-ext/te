@@ -95,8 +95,6 @@ inline T exchange(T& obj, U&& new_value)
 
 struct non_owning_storage
 {
-  non_owning_storage() noexcept = default;
-
   template <
     class T,
     class T_ = std::decay_t<T>,
@@ -106,19 +104,19 @@ struct non_owning_storage
   : ptr{&t}
   {
   }
+
   void* ptr = nullptr;
 };
 
 struct shared_storage
 {
-  shared_storage() noexcept = default;
-
   template <
     class T,
     class T_ = std::decay_t<T>,
     std::enable_if_t<!std::is_same_v<T_,shared_storage>, bool> = true
   >
-  constexpr explicit shared_storage(T &&t) noexcept
+  constexpr explicit shared_storage(T &&t)
+      noexcept(noexcept(std::make_shared<T_>(std::forward<T>(t))))
   : ptr{std::make_shared<T_>(std::forward<T>(t))}
   {
   }
@@ -128,15 +126,13 @@ struct shared_storage
 
 struct dynamic_storage
 {
-  dynamic_storage() noexcept = default;
-
   template <
     class T,
     class T_ = std::decay_t<T>,
     std::enable_if_t<!std::is_same_v<T_,dynamic_storage>, bool> = true
   >
-  explicit dynamic_storage(T &&t)
-      noexcept(noexcept(std::is_nothrow_constructible_v<T_,T>))
+  constexpr explicit dynamic_storage(T &&t)
+      noexcept(noexcept(new T_{std::forward<T>(t)}))
   : ptr{new T_{std::forward<T>(t)}},
     del{[](void *self) {
       delete reinterpret_cast<T_ *>(self);
@@ -175,7 +171,7 @@ struct dynamic_storage
   {
   }
 
-  constexpr dynamic_storage& operator=(dynamic_storage&& other)
+  constexpr dynamic_storage& operator=(dynamic_storage&& other) noexcept
   {
     if (other.ptr != ptr) {
       reset();
@@ -191,7 +187,7 @@ struct dynamic_storage
     reset();
   }
 
-  void reset()
+  constexpr void reset() noexcept
   {
     if (ptr)
       del(ptr);
@@ -206,15 +202,13 @@ struct dynamic_storage
 template <std::size_t Size, std::size_t Alignment = 8>
 struct local_storage
 {
-  local_storage() noexcept = default;
-
   template <
     class T,
     class T_ = std::decay_t<T>,
     std::enable_if_t<!std::is_same_v<T_,local_storage>, bool> = true
   >
   constexpr explicit local_storage(T &&t)
-      noexcept(noexcept(std::is_nothrow_constructible_v<T_,T>))
+      noexcept(noexcept(new (&data) T_{std::forward<T>(t)}))
   : ptr{new (&data) T_{std::forward<T>(t)}},
     del{[](void* mem) {
       reinterpret_cast<T_ *>(mem)->~T_();
@@ -281,7 +275,7 @@ struct local_storage
     reset();
   }
 
-  void reset()
+  constexpr void reset() noexcept
   {
     if (ptr)
       del(&data);
@@ -301,8 +295,6 @@ struct sbo_storage
   template<typename T_>
   struct type_fits : std::integral_constant<bool, sizeof(T_) <= Size && Alignment % alignof(T_) == 0>{};
 
-  sbo_storage() noexcept = default;
-
   template <
     class T,
     class T_ = std::decay_t<T>,
@@ -310,7 +302,7 @@ struct sbo_storage
     std::enable_if_t<type_fits<T_>::value, bool> = true
   >
   constexpr explicit sbo_storage(T &&t)
-      noexcept(noexcept(std::is_nothrow_constructible_v<T_,T>))
+      noexcept(noexcept(new (&data) T_{std::forward<T>(t)}))
   : ptr{new (&data) T_{std::forward<T>(t)}},
     del{[](void*, void* mem) {
       reinterpret_cast<T_ *>(mem)->~T_();
@@ -337,7 +329,7 @@ struct sbo_storage
     std::enable_if_t<!type_fits<T_>::value, bool> = true
   >
   constexpr explicit sbo_storage(T &&t)
-      noexcept(noexcept(std::is_nothrow_constructible_v<T_,T>))
+      noexcept(noexcept(new T_{std::forward<T>(t)}))
   : ptr{new T_{std::forward<T>(t)}},
     del{[](void* self, void*) {
       delete reinterpret_cast<T_ *>(self);
@@ -399,7 +391,7 @@ struct sbo_storage
     reset();
   }
 
-  void reset()
+  constexpr void reset() noexcept
   {
     if (ptr)
       del(ptr, &data);
@@ -428,7 +420,7 @@ class static_vtable {
 namespace detail {
 struct poly_base {
   void** vptr = nullptr;
-  virtual void* ptr() const = 0;
+  virtual void* ptr() const noexcept = 0;
 };
 }  // namespace detail
 
@@ -438,25 +430,37 @@ class poly : detail::poly_base,
              public std::conditional_t<detail::is_complete<I>{}, I,
                                        detail::type_list<I> > {
  public:
-  template <class T,
-            class = std::enable_if_t<
-                not std::is_convertible<std::decay_t<T>, poly>{}> >
-  constexpr poly(T &&t) noexcept
+  template <
+    class T,
+    class T_ = std::decay_t<T>,
+    class = std::enable_if_t<not std::is_convertible<T_, poly>{}>
+  >
+  constexpr poly(T &&t) noexcept(std::is_nothrow_constructible_v<T_,T>)
       : poly{std::forward<T>(t),
              detail::type_list<decltype(detail::requires__<I>(bool{}))>{}} {}
+
   constexpr poly(poly const &) = default;
   constexpr poly &operator=(poly const &) = default;
   constexpr poly(poly &&) = default;
   constexpr poly &operator=(poly &&) = default;
 
  private:
-  template <class T, class TRequires>
-  constexpr poly(T &&t, const TRequires) noexcept
+
+  template <
+    class T,
+    class T_ = std::decay_t<T>,
+    class TRequires
+  >
+  constexpr poly(T &&t, const TRequires) noexcept(std::is_nothrow_constructible_v<T_,T>)
       : poly{std::forward<T>(t),
              std::make_index_sequence<detail::mappings_size<I>()>{}} {}
 
-  template <class T, class T_ = std::decay_t<T>, std::size_t... Ns>
-  constexpr poly(T &&t, std::index_sequence<Ns...>) noexcept
+  template <
+    class T,
+    class T_ = std::decay_t<T>,
+    std::size_t... Ns
+  >
+  constexpr poly(T &&t, std::index_sequence<Ns...>) noexcept(std::is_nothrow_constructible_v<T_,T>)
       : detail::poly_base{},
         vtable{std::forward<T>(t), vptr,
                std::integral_constant<std::size_t, sizeof...(Ns)>{}},
@@ -477,7 +481,7 @@ class poly : detail::poly_base,
     });
   }
 
-  void* ptr() const
+  void* ptr() const noexcept
   {
     if constexpr(std::is_same_v<TStorage, shared_storage>)
       return storage.ptr.get();
@@ -490,10 +494,21 @@ class poly : detail::poly_base,
 };
 
 namespace detail {
-template <class I, std::size_t N, class R, class TExpr, class... Ts>
-constexpr auto call_impl(const poly_base &self,
-                         std::integral_constant<std::size_t, N>, type_list<R>,
-                         const TExpr, Ts &&... args) noexcept {
+template <
+  class I,
+  std::size_t N,
+  class R,
+  class TExpr,
+  class... Ts
+>
+constexpr auto call_impl(
+  const poly_base &self,
+  std::integral_constant<std::size_t, N>,
+  type_list<R>,
+  const TExpr,
+  Ts &&... args
+)
+{
   void(typename mappings<I, N>::template set<type_list<TExpr, Ts...> >{});
   return reinterpret_cast<R (*)(void *, Ts...)>(self.vptr[N - 1])(
       self.ptr(), std::forward<Ts>(args)...);
@@ -515,15 +530,26 @@ constexpr auto requires_impl(std::index_sequence<Ns...>) -> type_list<
     decltype(requires_impl<I>(decltype(get(mappings<T, Ns + 1>{})){}))...>;
 }  // namespace detail
 
-template <class R = void, std::size_t N = 0, class TExpr, class I, class... Ts>
-constexpr auto call(const TExpr expr, const I &interface,
-                    Ts &&... args) noexcept {
+template <
+  class R = void,
+  std::size_t N = 0,
+  class TExpr,
+  class I,
+  class... Ts
+>
+constexpr auto call(
+  const TExpr expr,
+  const I &interface,
+  Ts &&... args)
+{
   static_assert(std::is_empty<TExpr>{});
   return detail::call_impl<I>(
-      reinterpret_cast<const detail::poly_base &>(interface),
-      std::integral_constant<std::size_t,
-                             detail::mappings_size<I, class call>() + 1>{},
-      detail::type_list<R>{}, expr, std::forward<Ts>(args)...);
+    reinterpret_cast<const detail::poly_base &>(interface),
+    std::integral_constant<std::size_t, detail::mappings_size<I, class call>() + 1>{},
+    detail::type_list<R>{},
+    expr,
+    std::forward<Ts>(args)...
+  );
 }
 
 template <class I, class T>
