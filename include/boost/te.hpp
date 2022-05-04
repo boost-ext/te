@@ -424,8 +424,11 @@ struct poly_base {
 };
 }  // namespace detail
 
-template <class I, class TStorage = dynamic_storage,
-          class TVtable = static_vtable>
+template <
+  class I,
+  class TStorage = dynamic_storage,
+  class TVtable = static_vtable
+>
 class poly : detail::poly_base,
              public std::conditional_t<detail::is_complete<I>{}, I,
                                        detail::type_list<I> > {
@@ -433,17 +436,21 @@ class poly : detail::poly_base,
   template <
     class T,
     class T_ = std::decay_t<T>,
-    class = std::enable_if_t<not std::is_convertible<T_, poly>{}>
+    class = std::enable_if_t<not std::is_convertible<T_, poly>::value>
   >
   constexpr poly(T &&t)
       noexcept(std::is_nothrow_constructible_v<T_,T&&>)
       : poly{std::forward<T>(t),
              detail::type_list<decltype(detail::requires__<I>(bool{}))>{}} {}
 
-  constexpr poly(poly const &) = default;
-  constexpr poly &operator=(poly const &) = default;
-  constexpr poly(poly &&) = default;
-  constexpr poly &operator=(poly &&) = default;
+  constexpr poly(poly const &)
+      noexcept(std::is_nothrow_copy_constructible_v<TStorage>) = default;
+  constexpr poly &operator=(poly const &)
+      noexcept(std::is_nothrow_copy_constructible_v<TStorage>) = default;
+  constexpr poly(poly &&)
+      noexcept(std::is_nothrow_move_constructible_v<TStorage>) = default;
+  constexpr poly &operator=(poly &&)
+      noexcept(std::is_nothrow_move_constructible_v<TStorage>) = default;
 
  private:
 
