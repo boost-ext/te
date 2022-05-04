@@ -436,6 +436,7 @@ class poly : detail::poly_base,
     class = std::enable_if_t<not std::is_convertible<T_, poly>{}>
   >
   constexpr poly(T &&t)
+      noexcept(std::is_nothrow_constructible_v<T_,T&&>)
       : poly{std::forward<T>(t),
              detail::type_list<decltype(detail::requires__<I>(bool{}))>{}} {}
 
@@ -452,6 +453,7 @@ class poly : detail::poly_base,
     class TRequires
   >
   constexpr poly(T &&t, const TRequires)
+      noexcept(std::is_nothrow_constructible_v<T_,T&&>)
       : poly{std::forward<T>(t),
              std::make_index_sequence<detail::mappings_size<I>()>{}} {}
 
@@ -461,6 +463,7 @@ class poly : detail::poly_base,
     std::size_t... Ns
   >
   constexpr poly(T &&t, std::index_sequence<Ns...>)
+      noexcept(std::is_nothrow_constructible_v<T_,T&&>)
       : detail::poly_base{},
         vtable{std::forward<T>(t), vptr,
                std::integral_constant<std::size_t, sizeof...(Ns)>{}},
