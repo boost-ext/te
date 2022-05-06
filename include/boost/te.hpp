@@ -439,7 +439,7 @@ class poly : detail::poly_base,
     class = std::enable_if_t<not std::is_convertible<T_, poly>::value>
   >
   constexpr poly(T &&t)
-      noexcept(std::is_nothrow_constructible_v<T_,T&&>)
+      noexcept //(std::is_nothrow_constructible_v<T_,T&&>)
       : poly{std::forward<T>(t),
              detail::type_list<decltype(detail::requires__<I>(bool{}))>{}} {}
 
