@@ -431,7 +431,7 @@ class poly : detail::poly_base,
   template <
     class T,
     class T_ = std::decay_t<T>,
-    class = std::enable_if_t<not std::is_convertible<T_, poly>::value>
+    std::enable_if_t<!std::is_same_v<T_, poly>, bool> = true
   >
   constexpr poly(T &&t) noexcept(std::is_nothrow_constructible_v<T_,T&&>)
       : poly{std::forward<T>(t),
@@ -468,9 +468,10 @@ class poly : detail::poly_base,
                std::integral_constant<std::size_t, sizeof...(Ns)>{}},
         storage{std::forward<T>(t)} {
     static_assert(sizeof...(Ns) > 0);
-    static_assert(std::is_destructible<T_>{});
-    static_assert(std::is_copy_constructible<T>{} or
-                  std::is_move_constructible<T>{});
+    static_assert(std::is_destructible_v<T_>, "type must be desctructible");
+    static_assert(std::is_copy_constructible_v<T_> ||
+                  std::is_move_constructible_v<T_>,
+                  "type must be either copyable or moveable");
     (init<Ns + 1, std::decay_t<T> >(
          decltype(get(detail::mappings<I, Ns + 1>{})){}),
      ...);
