@@ -119,8 +119,7 @@ struct shared_storage
     class T_ = std::decay_t<T>,
     std::enable_if_t<!std::is_same_v<T_,shared_storage>, bool> = true
   >
-  constexpr explicit shared_storage(T &&t)
-      noexcept(std::is_nothrow_constructible_v<T_,T&&>)
+  constexpr explicit shared_storage(T &&t) noexcept(std::is_nothrow_constructible_v<T_,T&&>)
   : ptr{std::make_shared<T_>(std::forward<T>(t))}
   {
   }
@@ -137,8 +136,7 @@ struct dynamic_storage
     class T_ = std::decay_t<T>,
     std::enable_if_t<!std::is_same_v<T_,dynamic_storage>, bool> = true
   >
-  constexpr explicit dynamic_storage(T &&t)
-      noexcept(std::is_nothrow_constructible_v<T_,T&&>)
+  constexpr explicit dynamic_storage(T &&t) noexcept(std::is_nothrow_constructible_v<T_,T&&>)
   : ptr{new T_{std::forward<T>(t)}},
     del{[](void *self) {
       delete reinterpret_cast<T_ *>(self);
@@ -217,8 +215,7 @@ struct local_storage
     class T_ = std::decay_t<T>,
     std::enable_if_t<!std::is_same_v<T_,local_storage>, bool> = true
   >
-  constexpr explicit local_storage(T &&t)
-      noexcept(std::is_nothrow_constructible_v<T_,T&&>)
+  constexpr explicit local_storage(T &&t) noexcept(std::is_nothrow_constructible_v<T_,T&&>)
   : ptr{new (&data) T_{std::forward<T>(t)}},
     del{[](mem_t& self) {
       reinterpret_cast<T_ *>(&self)->~T_();
@@ -315,8 +312,7 @@ struct sbo_storage
     std::enable_if_t<!std::is_same_v<T_,sbo_storage>, bool> = true,
     std::enable_if_t<type_fits<T_>::value, bool> = true
   >
-  constexpr explicit sbo_storage(T &&t)
-      noexcept(std::is_nothrow_constructible_v<T_,T&&>)
+  constexpr explicit sbo_storage(T &&t) noexcept(std::is_nothrow_constructible_v<T_,T&&>)
   : ptr{new (&data) T_{std::forward<T>(t)}},
     del{[](mem_t& self_mem, void*) {
       reinterpret_cast<T_ *>(&self_mem)->~T_();
@@ -342,8 +338,7 @@ struct sbo_storage
     std::enable_if_t<!std::is_same_v<T_,sbo_storage>, bool> = true,
     std::enable_if_t<!type_fits<T_>::value, bool> = true
   >
-  constexpr explicit sbo_storage(T &&t)
-      noexcept(std::is_nothrow_constructible_v<T_,T&&>)
+  constexpr explicit sbo_storage(T &&t) noexcept(std::is_nothrow_constructible_v<T_,T&&>)
   : ptr{new T_{std::forward<T>(t)}},
     del{[](mem_t&, void* self_ptr) {
       delete reinterpret_cast<T_ *>(self_ptr);
@@ -450,10 +445,9 @@ class poly : detail::poly_base,
   template <
     class T,
     class T_ = std::decay_t<T>,
-    class = std::enable_if_t<not std::is_same_v<T_, poly>>
+    std::enable_if_t<!std::is_same_v<T_, poly>, bool> = true
   >
-  constexpr poly(T &&t)
-      noexcept(std::is_nothrow_constructible_v<T_,T&&>)
+  constexpr poly(T &&t) noexcept(std::is_nothrow_constructible_v<T_,T&&>)
       : poly{std::forward<T>(t),
              detail::type_list<decltype(detail::requires__<I>(bool{}))>{}} {}
 
@@ -473,8 +467,7 @@ class poly : detail::poly_base,
     class T_ = std::decay_t<T>,
     class TRequires
   >
-  constexpr poly(T &&t, const TRequires)
-      noexcept(std::is_nothrow_constructible_v<T_,T&&>)
+  constexpr poly(T &&t, const TRequires) noexcept(std::is_nothrow_constructible_v<T_,T&&>)
       : poly{std::forward<T>(t),
              std::make_index_sequence<detail::mappings_size<I>()>{}} {}
 
@@ -483,16 +476,16 @@ class poly : detail::poly_base,
     class T_ = std::decay_t<T>,
     std::size_t... Ns
   >
-  constexpr poly(T &&t, std::index_sequence<Ns...>)
-      noexcept(std::is_nothrow_constructible_v<T_,T&&>)
+  constexpr poly(T &&t, std::index_sequence<Ns...>) noexcept(std::is_nothrow_constructible_v<T_,T&&>)
       : detail::poly_base{},
         vtable{std::forward<T>(t), vptr,
                std::integral_constant<std::size_t, sizeof...(Ns)>{}},
         storage{std::forward<T>(t)} {
     static_assert(sizeof...(Ns) > 0);
-    static_assert(std::is_destructible<T_>{});
-    static_assert(std::is_copy_constructible<T>{} or
-                  std::is_move_constructible<T>{});
+    static_assert(std::is_destructible_v<T_>, "type must be desctructible");
+    static_assert(std::is_copy_constructible_v<T_> ||
+                  std::is_move_constructible_v<T_>,
+                  "type must be either copyable or moveable");
     (init<Ns + 1, std::decay_t<T> >(
          decltype(get(detail::mappings<I, Ns + 1>{})){}),
      ...);
