@@ -95,8 +95,6 @@ inline T exchange(T& obj, U&& new_value)
 
 struct non_owning_storage
 {
-  non_owning_storage() noexcept = default;
-
   template <
     class T,
     class T_ = std::decay_t<T>,
@@ -112,8 +110,6 @@ struct non_owning_storage
 
 struct shared_storage
 {
-  shared_storage() noexcept = default;
-
   template <
     class T,
     class T_ = std::decay_t<T>,
@@ -129,8 +125,6 @@ struct shared_storage
 
 struct dynamic_storage
 {
-  dynamic_storage() noexcept = default;
-
   template <
     class T,
     class T_ = std::decay_t<T>,
@@ -207,8 +201,6 @@ template <std::size_t Size, std::size_t Alignment = 8>
 struct local_storage
 {
   using mem_t = std::aligned_storage_t<Size, Alignment>;
-
-  local_storage() noexcept = default;
 
   template <
     class T,
@@ -303,8 +295,6 @@ struct sbo_storage
   struct type_fits : std::integral_constant<bool, sizeof(T_) <= Size && Alignment % alignof(T_) == 0>{};
 
   using mem_t = std::aligned_storage_t<Size, Alignment>;
-
-  sbo_storage() noexcept = default;
 
   template <
     class T,
@@ -419,7 +409,7 @@ class static_vtable {
 
  public:
   template <class T, std::size_t Size>
-  static_vtable(T &&, ptr_t *&vtable,
+  explicit static_vtable(T &&, ptr_t *&vtable,
                 std::integral_constant<std::size_t, Size>) noexcept {
     static ptr_t vt[Size]{};
     vtable = vt;
@@ -446,7 +436,7 @@ class poly : detail::poly_base,
     class T,
     class T_ = std::decay_t<T>,
     std::enable_if_t<!std::is_same_v<T_, poly>, bool> = true
-  >
+  > // cppcheck-suppress noExplicitConstructor
   constexpr poly(T &&t) noexcept(std::is_nothrow_constructible_v<T_,T&&>)
       : poly{std::forward<T>(t),
              detail::type_list<decltype(detail::requires__<I>(bool{}))>{}} {}
@@ -467,7 +457,7 @@ class poly : detail::poly_base,
     class T_ = std::decay_t<T>,
     class TRequires
   >
-  constexpr poly(T &&t, const TRequires) noexcept(std::is_nothrow_constructible_v<T_,T&&>)
+  constexpr explicit poly(T &&t, const TRequires) noexcept(std::is_nothrow_constructible_v<T_,T&&>)
       : poly{std::forward<T>(t),
              std::make_index_sequence<detail::mappings_size<I>()>{}} {}
 
@@ -476,7 +466,7 @@ class poly : detail::poly_base,
     class T_ = std::decay_t<T>,
     std::size_t... Ns
   >
-  constexpr poly(T &&t, std::index_sequence<Ns...>) noexcept(std::is_nothrow_constructible_v<T_,T&&>)
+  constexpr explicit poly(T &&t, std::index_sequence<Ns...>) noexcept(std::is_nothrow_constructible_v<T_,T&&>)
       : detail::poly_base{},
         vtable{std::forward<T>(t), vptr,
                std::integral_constant<std::size_t, sizeof...(Ns)>{}},
