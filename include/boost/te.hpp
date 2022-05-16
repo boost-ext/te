@@ -436,8 +436,9 @@ class poly : detail::poly_base,
     class T,
     class T_ = std::decay_t<T>,
     std::enable_if_t<!std::is_same_v<T_, poly>, bool> = true
-  > // cppcheck-suppress noExplicitConstructor
-  constexpr poly(T &&t) noexcept(std::is_nothrow_constructible_v<T_,T&&>)
+  >
+  constexpr poly(T &&t) // cppcheck-suppress noExplicitConstructor
+      noexcept(std::is_nothrow_constructible_v<T_,T&&>)
       : poly{std::forward<T>(t),
              detail::type_list<decltype(detail::requires__<I>(bool{}))>{}} {}
 
