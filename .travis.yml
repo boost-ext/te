@@ -45,6 +45,21 @@ matrix:
     env: CXX=g++-7 VARIANT=coverage
     addons: { apt: { packages: ["g++-7", "libstdc++-7-dev"], sources: ["ubuntu-toolchain-r-test"] } }
 
+  - os: linux
+      dist: trusty
+      env: CXX=g++-8 VARIANT=valgrind
+      addons: { apt: { packages: [ "g++-8", "libstdc++-8-dev" ], sources: [ "ubuntu-toolchain-r-test" ] } }
+
+  - os: linux
+      dist: trusty
+      env: CXX=g++-9 VARIANT=valgrind
+      addons: { apt: { packages: [ "g++-9", "libstdc++-9-dev" ], sources: [ "ubuntu-toolchain-r-test" ] } }
+
+  - os: linux
+      dist: trusty
+      env: CXX=g++-10 VARIANT=valgrind
+      addons: { apt: { packages: [ "g++-10", "libstdc++-10-dev" ], sources: [ "ubuntu-toolchain-r-test" ] } }
+
   - os: osx
     osx_image: xcode9.1
     env: CXX=clang++ VARIANT=valgrind
