@@ -18,6 +18,8 @@
 #pragma GCC system_header
 #include <type_traits>
 #include <utility>
+#include <stdexcept>
+#include <memory>
 
 namespace boost {
 inline namespace ext {
@@ -76,110 +78,330 @@ class expr_wrapper final {
   }
 };
 
-class void_ptr final {
- public:
-  using ptr_t = void *;
-  using del_t = void (*)(ptr_t);
-  using copy_t = ptr_t (*)(ptr_t);
-
- public:
-  void_ptr() noexcept = default;
-
-  template <class T>
-  constexpr explicit void_ptr(
-      T *ptr = nullptr,
-      del_t del = [](ptr_t ptr) { delete static_cast<T *>(ptr); },
-      copy_t copy = [](ptr_t ptr) -> void * {
-        return new T{*static_cast<T *>(ptr)};
-      }) noexcept
-      : ptr{ptr}, del{del}, copy{copy} {}
-
-  constexpr void_ptr(const void_ptr &other) noexcept
-      : ptr{other.copy(other.ptr)}, del{other.del}, copy{other.copy} {}
-
-  constexpr void_ptr(void_ptr &&other) noexcept
-      : ptr{std::move(other.ptr)},
-        del{std::move(other.del)},
-        copy{std::move(other.copy)} {
-    other.ptr = nullptr;
-  }
-
-  constexpr void_ptr &operator=(const void_ptr &other) noexcept {
-    reset(other.copy(other.ptr));
-    del = other.del;
-    copy = other.copy;
-    return *this;
-  }
-
-  constexpr void_ptr &operator=(void_ptr &&other) noexcept {
-    reset(std::move(other.ptr));
-    del = std::move(other.del);
-    copy = std::move(other.copy);
-    other.ptr = nullptr;
-    return *this;
-  }
-
-  ~void_ptr() noexcept { reset(); }
-
-  constexpr void reset(ptr_t new_ptr = {}) noexcept {
-    del(ptr);
-    ptr = new_ptr;
-  }
-
-  constexpr void reset(ptr_t new_ptr, del_t new_del, copy_t new_copy) noexcept {
-    ptr = new_ptr;
-    del = new_del;
-    copy = new_copy;
-  }
-
-  template <class T = void>
-  constexpr decltype(auto) get() const noexcept {
-    return reinterpret_cast<T *>(ptr);
-  }
-
- private:
-  ptr_t ptr;
-  del_t del;
-  copy_t copy;
-};
+/*! Same as std::exchange() but is guaranteed constexpr !*/
+template<class T, class U>
+constexpr
+inline T exchange(T& obj, U&& new_value)
+  noexcept(
+    std::is_nothrow_move_constructible<T>::value &&
+    std::is_nothrow_assignable<T&, U>::value
+  )
+{
+  T old_value = std::move(obj);
+  obj         = std::forward<U>(new_value);
+  return old_value;
+}
 }  // namespace detail
 
-class non_owning_storage {
- public:
-  template <class T, class T_ = std::decay_t<T> >
-  constexpr explicit non_owning_storage(T &&t, detail::void_ptr &ptr) noexcept {
-    ptr.reset(&t, []([[maybe_unused]] void *ptr) {},
-              [](void *ptr) -> void * { return static_cast<T_ *>(ptr); });
+struct non_owning_storage
+{
+  template <
+    class T,
+    class T_ = std::decay_t<T>,
+    std::enable_if_t<!std::is_same_v<T_,non_owning_storage>, bool> = true
+  >
+  constexpr explicit non_owning_storage(T &&t) noexcept
+  : ptr{&t}
+  {
   }
+
+  void* ptr = nullptr;
 };
 
-class dynamic_storage {
- public:
-  template <class T, class T_ = std::decay_t<T> >
-  constexpr explicit dynamic_storage(T &&t, detail::void_ptr &ptr) noexcept {
-    ptr.reset(new T_{std::forward<T>(t)},
-              [](void *ptr) { delete static_cast<T_ *>(ptr); },
-              [](void *ptr) -> void * {
-                return new T_{std::move(*static_cast<T_ *>(ptr))};
-              });
+struct shared_storage
+{
+  template <
+    class T,
+    class T_ = std::decay_t<T>,
+    std::enable_if_t<!std::is_same_v<T_,shared_storage>, bool> = true
+  >
+  constexpr explicit shared_storage(T &&t) noexcept(std::is_nothrow_constructible_v<T_,T&&>)
+  : ptr{std::make_shared<T_>(std::forward<T>(t))}
+  {
   }
+
+  std::shared_ptr<void> ptr;
 };
 
-template <std::size_t Size, std::size_t Alignment = 16>
-class local_storage {
- public:
-  template <class T, class T_ = std::decay_t<T> >
-  constexpr explicit local_storage(T &&t, detail::void_ptr &ptr) noexcept {
-    static_assert(sizeof(T) <= Size);
-    new (&data) T_{std::forward<T>(t)};
-    ptr.reset(&data, [](void *ptr) { static_cast<T_ *>(ptr)->~T_(); },
-              [](void *ptr) -> void * {
-                return new (ptr) T_{std::move(*static_cast<T_ *>(ptr))};
-              });
+struct dynamic_storage
+{
+  template <
+    class T,
+    class T_ = std::decay_t<T>,
+    std::enable_if_t<!std::is_same_v<T_,dynamic_storage>, bool> = true
+  >
+  constexpr explicit dynamic_storage(T &&t) noexcept(std::is_nothrow_constructible_v<T_,T&&>)
+  : ptr{new T_{std::forward<T>(t)}},
+    del{[](void *self) {
+      delete reinterpret_cast<T_ *>(self);
+    }},
+    copy{[](const void *other) -> void * {
+      if constexpr(std::is_copy_constructible_v<T_>)
+        return new T_{*reinterpret_cast<const T_*>(other)};
+      else
+        throw std::runtime_error("dynamic_storage : erased type is not copy constructible");
+    }}
+  {
   }
 
- private:
-  std::aligned_storage<Size, Alignment> data;
+  constexpr dynamic_storage(const dynamic_storage& other)
+  : ptr{other.ptr ? other.copy(other.ptr) : nullptr},
+    del{other.del},
+    copy{other.copy}
+  {
+  }
+
+  constexpr dynamic_storage& operator=(const dynamic_storage& other)
+  {
+    if (other.ptr != ptr) {
+      reset();
+      ptr   = other.ptr ? other.copy(other.ptr) : nullptr;
+      del   = other.del;
+      copy  = other.copy;
+    }
+    return *this;
+  }
+
+  constexpr dynamic_storage(dynamic_storage&& other) noexcept
+  : ptr{detail::exchange(other.ptr, nullptr)},
+    del{detail::exchange(other.del, nullptr)},
+    copy{detail::exchange(other.copy, nullptr)}
+  {
+  }
+
+  constexpr dynamic_storage& operator=(dynamic_storage&& other) noexcept
+  {
+    if (other.ptr != ptr) {
+      reset();
+      ptr   = detail::exchange(other.ptr, nullptr);
+      del   = detail::exchange(other.del, nullptr);
+      copy  = detail::exchange(other.copy, nullptr);
+    }
+    return *this;
+  }
+
+  ~dynamic_storage()
+  {
+    reset();
+  }
+
+  constexpr void reset() noexcept
+  {
+    if (ptr)
+      del(ptr);
+    ptr = nullptr;
+  }
+
+  void* ptr                     = nullptr;
+  void  (*del)(void*)           = nullptr;
+  void* (*copy)(const void*)    = nullptr;
+};
+
+template <std::size_t Size, std::size_t Alignment = 8>
+struct local_storage
+{
+  using mem_t = std::aligned_storage_t<Size, Alignment>;
+
+  template <
+    class T,
+    class T_ = std::decay_t<T>,
+    std::enable_if_t<!std::is_same_v<T_,local_storage>, bool> = true
+  >
+  constexpr explicit local_storage(T &&t) noexcept(std::is_nothrow_constructible_v<T_,T&&>)
+  : ptr{new (&data) T_{std::forward<T>(t)}},
+    del{[](mem_t& self) {
+      reinterpret_cast<T_ *>(&self)->~T_();
+    }},
+    copy{[](mem_t& self, const void* other) -> void* {
+      if constexpr(std::is_copy_constructible_v<T_>)
+        return new (&self) T_{*reinterpret_cast<const T_ *>(other)};
+      else
+        throw std::runtime_error("local_storage : erased type is not copy constructible");
+    }},
+    move{[](mem_t& self, void* other) -> void* {
+      if constexpr(std::is_move_constructible_v<T_>)
+        return new (&self) T_{std::move(*reinterpret_cast<T_ *>(other))};
+      else
+        throw std::runtime_error("local_storage : erased type is not move constructible");
+    }}
+  {
+    static_assert(sizeof(T_) <= Size, "insufficient size");
+    static_assert(Alignment % alignof(T_) == 0, "bad alignment");
+  }
+
+  constexpr local_storage(const local_storage& other)
+  : ptr{other.ptr ? other.copy(data, other.ptr) : nullptr},
+    del{other.del},
+    copy{other.copy},
+    move{other.move}
+  {
+  }
+
+  constexpr local_storage& operator=(const local_storage& other)
+  {
+    if (other.ptr != ptr) {
+      reset();
+      ptr   = other.ptr ? other.copy(data, other.ptr) : nullptr;
+      del   = other.del;
+      copy  = other.copy;
+      move  = other.move;
+    }
+    return *this;
+  }
+
+  constexpr local_storage(local_storage&& other)
+  : ptr{other.ptr ? other.move(data, other.ptr) : nullptr},
+    del{other.del},
+    copy{other.copy},
+    move{other.move}
+  {
+  }
+
+  constexpr local_storage& operator=(local_storage&& other)
+  {
+    if (other.ptr != ptr) {
+      reset();
+      ptr   = other.ptr ? other.move(data, other.ptr) : nullptr;
+      del   = other.del;
+      copy  = other.copy;
+      move  = other.move;
+    }
+    return *this;
+  }
+
+  ~local_storage()
+  {
+    reset();
+  }
+
+  constexpr void reset() noexcept
+  {
+    if (ptr)
+      del(data);
+    ptr = nullptr;
+  }
+
+  mem_t data;
+  void* ptr                               = nullptr;
+  void  (*del)(mem_t&)                    = nullptr;
+  void* (*copy)(mem_t& mem, const void*)  = nullptr;
+  void* (*move)(mem_t& mem, void*)        = nullptr;
+};
+
+template <std::size_t Size, std::size_t Alignment = 8>
+struct sbo_storage
+{
+  template<typename T_>
+  struct type_fits : std::integral_constant<bool, sizeof(T_) <= Size && Alignment % alignof(T_) == 0>{};
+
+  using mem_t = std::aligned_storage_t<Size, Alignment>;
+
+  template <
+    class T,
+    class T_ = std::decay_t<T>,
+    std::enable_if_t<!std::is_same_v<T_,sbo_storage>, bool> = true,
+    std::enable_if_t<type_fits<T_>::value, bool> = true
+  >
+  constexpr explicit sbo_storage(T &&t) noexcept(std::is_nothrow_constructible_v<T_,T&&>)
+  : ptr{new (&data) T_{std::forward<T>(t)}},
+    del{[](mem_t& self_mem, void*) {
+      reinterpret_cast<T_ *>(&self_mem)->~T_();
+    }},
+    copy{[](mem_t& self_mem, const void* other) -> void* {
+      if constexpr(std::is_copy_constructible_v<T_>)
+        return new (&self_mem) T_{*reinterpret_cast<const T_ *>(other)};
+      else
+        throw std::runtime_error("sbo_storage : erased type is not copy constructible");
+    }},
+    move{[](mem_t& self_mem, void*& other) -> void* {
+      if constexpr(std::is_move_constructible_v<T_>)
+        return new (&self_mem) T_{std::move(*reinterpret_cast<T_ *>(other))};
+      else
+        throw std::runtime_error("sbo_storage : erased type is not move constructible");
+    }}
+  {
+  }
+
+  template <
+    class T,
+    class T_ = std::decay_t<T>,
+    std::enable_if_t<!std::is_same_v<T_,sbo_storage>, bool> = true,
+    std::enable_if_t<!type_fits<T_>::value, bool> = true
+  >
+  constexpr explicit sbo_storage(T &&t) noexcept(std::is_nothrow_constructible_v<T_,T&&>)
+  : ptr{new T_{std::forward<T>(t)}},
+    del{[](mem_t&, void* self_ptr) {
+      delete reinterpret_cast<T_ *>(self_ptr);
+    }},
+    copy{[](mem_t&, const void* other) -> void* {
+      if constexpr(std::is_copy_constructible_v<T_>)
+        return new T_{*reinterpret_cast<const T_*>(other)};
+      else
+        throw std::runtime_error("dynamic_storage : erased type is not copy constructible");
+    }},
+    move{[](mem_t&, void*& other) {
+      return detail::exchange(other, nullptr);
+    }}
+  {
+  }
+
+  constexpr sbo_storage(const sbo_storage& other)
+    : ptr{other.ptr ? other.copy(data, other.ptr) : nullptr},
+      del{other.del},
+      copy{other.copy},
+      move{other.move}
+  {
+  }
+
+  constexpr sbo_storage& operator=(const sbo_storage& other)
+  {
+    if (other.ptr != ptr) {
+      reset();
+      ptr   = other.ptr ? other.copy(data, other.ptr) : nullptr;
+      del   = other.del;
+      copy  = other.copy;
+      move  = other.move;
+    }
+    return *this;
+  }
+
+  constexpr sbo_storage(sbo_storage&& other)
+    : ptr{other.ptr ? other.move(data, other.ptr) : nullptr},
+      del{other.del},
+      copy{other.copy},
+      move{other.move}
+  {
+  }
+
+  constexpr sbo_storage& operator=(sbo_storage&& other)
+  {
+    if (other.ptr != ptr) {
+      reset();
+      ptr   = other.ptr ? other.move(data, other.ptr) : nullptr;
+      del   = other.del;
+      copy  = other.copy;
+      move  = other.move;
+    }
+    return *this;
+  }
+
+  ~sbo_storage()
+  {
+    reset();
+  }
+
+  constexpr void reset() noexcept
+  {
+    if (ptr)
+      del(data, ptr);
+    ptr = nullptr;
+  }
+
+  mem_t data;
+  void* ptr                           = nullptr;
+  void  (*del)(mem_t&, void*)         = nullptr;
+  void* (*copy)(mem_t&, const void*)  = nullptr;
+  void* (*move)(mem_t&, void*&)       = nullptr;
 };
 
 class static_vtable {
@@ -187,7 +409,7 @@ class static_vtable {
 
  public:
   template <class T, std::size_t Size>
-  static_vtable(T &&, ptr_t *&vtable,
+  explicit static_vtable(T &&, ptr_t *&vtable,
                 std::integral_constant<std::size_t, Size>) noexcept {
     static ptr_t vt[Size]{};
     vtable = vt;
@@ -196,44 +418,65 @@ class static_vtable {
 
 namespace detail {
 struct poly_base {
-  detail::void_ptr ptr{};
-  detail::void_ptr::ptr_t *vptr{};
+  void** vptr = nullptr;
+  virtual void* ptr() const noexcept = 0;
 };
 }  // namespace detail
 
-template <class I, class TStorage = dynamic_storage,
-          class TVtable = static_vtable>
+template <
+  class I,
+  class TStorage = dynamic_storage,
+  class TVtable = static_vtable
+>
 class poly : detail::poly_base,
              public std::conditional_t<detail::is_complete<I>{}, I,
                                        detail::type_list<I> > {
  public:
-  template <class T,
-            class = std::enable_if_t<
-                not std::is_convertible<std::decay_t<T>, poly>{}> >
-  constexpr poly(T &&t) noexcept
+  template <
+    class T,
+    class T_ = std::decay_t<T>,
+    std::enable_if_t<!std::is_same_v<T_, poly>, bool> = true
+  >
+  constexpr poly(T &&t) // cppcheck-suppress noExplicitConstructor
+      noexcept(std::is_nothrow_constructible_v<T_,T&&>)
       : poly{std::forward<T>(t),
              detail::type_list<decltype(detail::requires__<I>(bool{}))>{}} {}
-  constexpr poly(poly const &) noexcept = default;
-  constexpr poly &operator=(poly const &) noexcept = default;
-  constexpr poly(poly &&) noexcept = default;
-  constexpr poly &operator=(poly &&) noexcept = default;
+
+  constexpr poly(poly const &)
+      noexcept(std::is_nothrow_copy_constructible_v<TStorage>) = default;
+  constexpr poly &operator=(poly const &)
+      noexcept(std::is_nothrow_copy_constructible_v<TStorage>) = default;
+  constexpr poly(poly &&)
+      noexcept(std::is_nothrow_move_constructible_v<TStorage>) = default;
+  constexpr poly &operator=(poly &&)
+      noexcept(std::is_nothrow_move_constructible_v<TStorage>) = default;
 
  private:
-  template <class T, class TRequires>
-  constexpr poly(T &&t, const TRequires) noexcept
+
+  template <
+    class T,
+    class T_ = std::decay_t<T>,
+    class TRequires
+  >
+  constexpr explicit poly(T &&t, const TRequires) noexcept(std::is_nothrow_constructible_v<T_,T&&>)
       : poly{std::forward<T>(t),
              std::make_index_sequence<detail::mappings_size<I>()>{}} {}
 
-  template <class T, class T_ = std::decay_t<T>, std::size_t... Ns>
-  constexpr poly(T &&t, std::index_sequence<Ns...>) noexcept
+  template <
+    class T,
+    class T_ = std::decay_t<T>,
+    std::size_t... Ns
+  >
+  constexpr explicit poly(T &&t, std::index_sequence<Ns...>) noexcept(std::is_nothrow_constructible_v<T_,T&&>)
       : detail::poly_base{},
         vtable{std::forward<T>(t), vptr,
                std::integral_constant<std::size_t, sizeof...(Ns)>{}},
-        storage{std::forward<T>(t), ptr} {
+        storage{std::forward<T>(t)} {
     static_assert(sizeof...(Ns) > 0);
-    static_assert(std::is_destructible<T_>{});
-    static_assert(std::is_copy_constructible<T>{} or
-                  std::is_move_constructible<T>{});
+    static_assert(std::is_destructible_v<T_>, "type must be desctructible");
+    static_assert(std::is_copy_constructible_v<T_> ||
+                  std::is_move_constructible_v<T_>,
+                  "type must be either copyable or moveable");
     (init<Ns + 1, std::decay_t<T> >(
          decltype(get(detail::mappings<I, Ns + 1>{})){}),
      ...);
@@ -246,18 +489,37 @@ class poly : detail::poly_base,
     });
   }
 
+  void* ptr() const noexcept
+  {
+    if constexpr(std::is_same_v<TStorage, shared_storage>)
+      return storage.ptr.get();
+    else
+      return storage.ptr;
+  }
+
   TStorage storage;
   TVtable vtable;
 };
 
 namespace detail {
-template <class I, std::size_t N, class R, class TExpr, class... Ts>
-constexpr auto call_impl(const poly_base &self,
-                         std::integral_constant<std::size_t, N>, type_list<R>,
-                         const TExpr, Ts &&... args) noexcept {
+template <
+  class I,
+  std::size_t N,
+  class R,
+  class TExpr,
+  class... Ts
+>
+constexpr auto call_impl(
+  const poly_base &self,
+  std::integral_constant<std::size_t, N>,
+  type_list<R>,
+  const TExpr,
+  Ts &&... args
+)
+{
   void(typename mappings<I, N>::template set<type_list<TExpr, Ts...> >{});
   return reinterpret_cast<R (*)(void *, Ts...)>(self.vptr[N - 1])(
-      self.ptr.get(), std::forward<Ts>(args)...);
+      self.ptr(), std::forward<Ts>(args)...);
 }
 
 template <class I, class T, std::size_t... Ns>
@@ -276,15 +538,26 @@ constexpr auto requires_impl(std::index_sequence<Ns...>) -> type_list<
     decltype(requires_impl<I>(decltype(get(mappings<T, Ns + 1>{})){}))...>;
 }  // namespace detail
 
-template <class R = void, std::size_t N = 0, class TExpr, class I, class... Ts>
-constexpr auto call(const TExpr expr, const I &interface,
-                    Ts &&... args) noexcept {
+template <
+  class R = void,
+  std::size_t N = 0,
+  class TExpr,
+  class I,
+  class... Ts
+>
+constexpr auto call(
+  const TExpr expr,
+  const I &interface,
+  Ts &&... args)
+{
   static_assert(std::is_empty<TExpr>{});
   return detail::call_impl<I>(
-      reinterpret_cast<const detail::poly_base &>(interface),
-      std::integral_constant<std::size_t,
-                             detail::mappings_size<I, class call>() + 1>{},
-      detail::type_list<R>{}, expr, std::forward<Ts>(args)...);
+    reinterpret_cast<const detail::poly_base &>(interface),
+    std::integral_constant<std::size_t, detail::mappings_size<I, class call>() + 1>{},
+    detail::type_list<R>{},
+    expr,
+    std::forward<Ts>(args)...
+  );
 }
 
 template <class I, class T>

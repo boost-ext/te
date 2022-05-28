@@ -8,6 +8,7 @@
 #include <sstream>
 #include <type_traits>
 #include <vector>
+#include <cstring>
 
 #include "boost/te.hpp"
 #include "common/test.hpp"
@@ -36,27 +37,6 @@ test should_return_mappings_size = [] {
   static_assert(
       3 ==
       te::detail::mappings_size<class Size, std::integral_constant<int, 1>>());
-};
-
-test should_support_void_ptr = [] {
-  te::detail::void_ptr ptr{new int{42}};
-  expect(42 == *ptr.get<int>());
-
-  int &i = *ptr.get<int>();
-  ++i;
-  expect(43 == *ptr.get<int>());
-
-  te::detail::void_ptr copy{ptr};
-  expect(43 == *copy.get<int>());
-
-  te::detail::void_ptr copy_assign = ptr;
-  expect(43 == *copy_assign.get<int>());
-
-  te::detail::void_ptr move{std::move(ptr)};
-  expect(43 == *move.get<int>());
-
-  te::detail::void_ptr move_assign = std::move(ptr);
-  expect(43 == *move.get<int>());
 };
 
 struct Drawable {
@@ -199,6 +179,10 @@ struct SquareNoncopyable {
   void draw(std::ostream &out) const { out << "Square"; }
 };
 
+struct TriangleCopyable {
+  void draw(std::ostream &out) const { out << "Triangle"; }
+};
+
 test should_support_movable_only_types = [] {
   te::poly<Drawable> drawable = CircleNoncopyable{};
 
@@ -213,6 +197,30 @@ test should_support_movable_only_types = [] {
     drawable = SquareNoncopyable{};
     drawable.draw(str);
     expect("Square" == str.str());
+  }
+
+  te::poly<Drawable> drawable2 = SquareNoncopyable{}; //need this as te::poly is not default constructible yet
+
+  {
+    try {
+      /*! Try to copy. This should throw as SquareNoncopyable is non-copyable !*/
+      drawable2 = drawable;
+      expect(false);
+    } catch(const std::exception&) {
+      expect(true);
+    }
+  }
+
+  drawable2 = TriangleCopyable{};
+
+  {
+    try {
+      /*! Try to copy. This should succeed as TriangeCopyable is copyable !*/
+      drawable = drawable2;
+      expect(true);
+    } catch (const std::exception &) {
+      expect(false);
+    }
   }
 };
 
@@ -231,6 +239,128 @@ test should_support_movable_only_types_with_local_storage = [] {
     drawable.draw(str);
     expect("Square" == str.str());
   }
+
+  te::poly<Drawable, te::local_storage<32>> drawable2 = SquareNoncopyable{}; //need this as te::poly is not default constructible yet
+
+  {
+    try {
+      /*! Try to copy. This should throw as SquareNoncopyable is non-copyable !*/
+      drawable2 = drawable;
+      expect(false);
+    } catch(const std::exception&) {
+      expect(true);
+    }
+  }
+
+  drawable2 = TriangleCopyable{};
+
+  {
+    try {
+      /*! Try to copy. This should succeed as TriangeCopyable is copyable !*/
+      drawable = drawable2;
+      expect(true);
+    } catch (const std::exception &) {
+      expect(false);
+    }
+  }
+};
+
+test should_support_movable_only_types_with_sbo_storage = [] {
+  te::poly<Drawable, te::sbo_storage<32>> drawable = CircleNoncopyable{};
+
+  {
+    std::stringstream str{};
+    drawable.draw(str);
+    expect("Circle" == str.str());
+  }
+
+  {
+    std::stringstream str{};
+    drawable = SquareNoncopyable{};
+    drawable.draw(str);
+    expect("Square" == str.str());
+  }
+
+  te::poly<Drawable, te::sbo_storage<32>> drawable2 = SquareNoncopyable{}; //need this as te::poly is not default constructible yet
+
+  {
+    try {
+      /*! Try to copy. This should throw as SquareNoncopyable is non-copyable !*/
+      drawable2 = drawable;
+      expect(false);
+    } catch(const std::exception&) {
+      expect(true);
+    }
+  }
+
+  drawable2 = TriangleCopyable{};
+
+  {
+    try {
+      /*! Try to copy. This should succeed as TriangeCopyable is copyable !*/
+      drawable = drawable2;
+      expect(true);
+    } catch (const std::exception &) {
+      expect(false);
+    }
+  }
+};
+
+test should_support_movable_only_types_with_shared_storage = [] {
+  te::poly<Drawable, te::shared_storage> drawable = CircleNoncopyable{};
+
+  {
+    std::stringstream str{};
+    drawable.draw(str);
+    expect("Circle" == str.str());
+  }
+
+  {
+    std::stringstream str{};
+    drawable = SquareNoncopyable{};
+    drawable.draw(str);
+    expect("Square" == str.str());
+  }
+
+  te::poly<Drawable, te::shared_storage> drawable2 = CircleNoncopyable{}; //need to assign to something as te::poly is not default constructible yet.
+
+  {
+    try {
+      /*! Copying is fine with shared_storage !*/
+      drawable2 = drawable;
+      expect(true);
+    } catch (const std::exception &) {
+      expect(false);
+    }
+  }
+};
+
+struct IStringy
+{
+  const char* c_str() const { return te::call<const char*>([](auto const &self) { return self.c_str(); }, *this); }
+};
+
+template<typename Stringy>
+void self_assignment()
+{
+  std::string str{"hello world"};
+  Stringy str1{str};
+
+  expect(std::strcmp(str1.c_str(), str.c_str()) == 0); //this line is not really necessary, but why not, may as well test.
+  Stringy& str2 = str1;
+  str1 = str2; //self copy assignment
+  expect(std::strcmp(str1.c_str(), str.c_str()) == 0); //we're testing that nothing has been deleted or messed up
+  str2 = std::move(str1); //self move assignment
+  expect(std::strcmp(str2.c_str(), str.c_str()) == 0); //we're testing that nothing has been deleted or messed up
+}
+
+test test_self_assignment = [] {
+  self_assignment<te::poly<IStringy, te::non_owning_storage>>();
+  self_assignment<te::poly<IStringy, te::shared_storage>>();
+  self_assignment<te::poly<IStringy, te::dynamic_storage>>();
+  self_assignment<te::poly<IStringy, te::local_storage<64>>>();
+  self_assignment<te::poly<IStringy, te::sbo_storage<4>>>(); //heap is used
+  self_assignment<te::poly<IStringy, te::sbo_storage<64>>>(); //stack is used
 };
 
 test should_support_containers = [] {
@@ -436,6 +566,26 @@ struct Storage {
   Storage(const Storage &) { ++calls<CopyCtor>(); }
   Storage(Storage &&) { ++calls<MoveCtor>(); }
   ~Storage() { ++calls<Dtor>(); }
+
+  double someDummyDataSoTypeIsNonEmpty = 0;
+};
+
+test should_support_ref_storage = [] {
+  Storage::calls<Ctor>() = 0;
+  Storage::calls<CopyCtor>() = 0;
+  Storage::calls<MoveCtor>() = 0;
+  Storage::calls<Dtor>() = 0;
+
+  {
+    te::non_owning_storage storage{Storage{}};
+    te::non_owning_storage storage2 = storage;
+    te::non_owning_storage storage3 [[maybe_unused]] = std::move(storage2);
+  }
+
+  expect(1 == Storage::calls<Ctor>());
+  expect(0 == Storage::calls<CopyCtor>());
+  expect(0 == Storage::calls<MoveCtor>());
+  expect(1 == Storage::calls<Dtor>());
 };
 
 test should_support_dynamic_storage = [] {
@@ -444,15 +594,35 @@ test should_support_dynamic_storage = [] {
   Storage::calls<MoveCtor>() = 0;
   Storage::calls<Dtor>() = 0;
 
+  using storage = te::dynamic_storage;
+
   {
-    te::detail::void_ptr ptr{};
-    te::dynamic_storage storage{Storage{}, ptr};
+    Storage storage0;
+    expect(1 == Storage::calls<Ctor>());
+    expect(0 == Storage::calls<CopyCtor>());
+    expect(0 == Storage::calls<MoveCtor>());
+    expect(0 == Storage::calls<Dtor>());
+    storage storage1{storage0};
+    expect(1 == Storage::calls<Ctor>());
+    expect(1 == Storage::calls<CopyCtor>());
+    expect(0 == Storage::calls<MoveCtor>());
+    expect(0 == Storage::calls<Dtor>());
+    storage storage2{storage1};
+    expect(1 == Storage::calls<Ctor>());
+    expect(2 == Storage::calls<CopyCtor>());
+    expect(0 == Storage::calls<MoveCtor>());
+    expect(0 == Storage::calls<Dtor>());
+    storage storage3{std::move(storage2)};
+    expect(1 == Storage::calls<Ctor>());
+    expect(2 == Storage::calls<CopyCtor>());
+    expect(0 == Storage::calls<MoveCtor>()); //pointer is moved, not the underlying value
+    expect(0 == Storage::calls<Dtor>());
   }
 
   expect(1 == Storage::calls<Ctor>());
-  expect(0 == Storage::calls<CopyCtor>());
-  expect(1 == Storage::calls<MoveCtor>());
-  expect(2 == Storage::calls<Dtor>());
+  expect(2 == Storage::calls<CopyCtor>());
+  expect(0 == Storage::calls<MoveCtor>());
+  expect(3 == Storage::calls<Dtor>()); // one of the pointers was moved, so only 2 values got deleted
 };
 
 test should_support_local_storage = [] {
@@ -461,14 +631,145 @@ test should_support_local_storage = [] {
   Storage::calls<MoveCtor>() = 0;
   Storage::calls<Dtor>() = 0;
 
+  using storage = te::local_storage<16>;
+
   {
-    te::detail::void_ptr ptr{};
-    te::local_storage<16> storage{Storage{}, ptr};
+    Storage storage0;
+    expect(1 == Storage::calls<Ctor>());
+    expect(0 == Storage::calls<CopyCtor>());
+    expect(0 == Storage::calls<MoveCtor>());
+    expect(0 == Storage::calls<Dtor>());
+    storage storage1{storage0};
+    expect(1 == Storage::calls<Ctor>());
+    expect(1 == Storage::calls<CopyCtor>());
+    expect(0 == Storage::calls<MoveCtor>());
+    expect(0 == Storage::calls<Dtor>());
+    storage storage2{storage1};
+    expect(1 == Storage::calls<Ctor>());
+    expect(2 == Storage::calls<CopyCtor>());
+    expect(0 == Storage::calls<MoveCtor>());
+    expect(0 == Storage::calls<Dtor>());
+    storage storage3{std::move(storage2)};
+    expect(1 == Storage::calls<Ctor>());
+    expect(2 == Storage::calls<CopyCtor>());
+    expect(1 == Storage::calls<MoveCtor>());
+    expect(0 == Storage::calls<Dtor>());
   }
 
   expect(1 == Storage::calls<Ctor>());
-  expect(0 == Storage::calls<CopyCtor>());
+  expect(2 == Storage::calls<CopyCtor>());
   expect(1 == Storage::calls<MoveCtor>());
+  expect(4 == Storage::calls<Dtor>());
+};
+
+test should_support_sbo_storage_small = [] {
+  Storage::calls<Ctor>() = 0;
+  Storage::calls<CopyCtor>() = 0;
+  Storage::calls<MoveCtor>() = 0;
+  Storage::calls<Dtor>() = 0;
+
+  using storage = te::sbo_storage<8>;
+
+  {
+    Storage storage0;
+    expect(1 == Storage::calls<Ctor>());
+    expect(0 == Storage::calls<CopyCtor>());
+    expect(0 == Storage::calls<MoveCtor>());
+    expect(0 == Storage::calls<Dtor>());
+    storage storage1{storage0};
+    expect(1 == Storage::calls<Ctor>());
+    expect(1 == Storage::calls<CopyCtor>());
+    expect(0 == Storage::calls<MoveCtor>());
+    expect(0 == Storage::calls<Dtor>());
+    storage storage2{storage1};
+    expect(1 == Storage::calls<Ctor>());
+    expect(2 == Storage::calls<CopyCtor>());
+    expect(0 == Storage::calls<MoveCtor>());
+    expect(0 == Storage::calls<Dtor>());
+    storage storage3{std::move(storage2)};
+    expect(1 == Storage::calls<Ctor>());
+    expect(2 == Storage::calls<CopyCtor>());
+    expect(1 == Storage::calls<MoveCtor>()); //sbo success so value is moved
+    expect(0 == Storage::calls<Dtor>());
+  }
+
+  expect(1 == Storage::calls<Ctor>());
+  expect(2 == Storage::calls<CopyCtor>());
+  expect(1 == Storage::calls<MoveCtor>());
+  expect(4 == Storage::calls<Dtor>()); //sbo success so all values got destructed
+};
+
+test should_support_sbo_storage_large = [] {
+  Storage::calls<Ctor>() = 0;
+  Storage::calls<CopyCtor>() = 0;
+  Storage::calls<MoveCtor>() = 0;
+  Storage::calls<Dtor>() = 0;
+
+  using storage = te::sbo_storage<2>;
+
+  {
+    Storage storage0;
+    expect(1 == Storage::calls<Ctor>());
+    expect(0 == Storage::calls<CopyCtor>());
+    expect(0 == Storage::calls<MoveCtor>());
+    expect(0 == Storage::calls<Dtor>());
+    storage storage1{storage0};
+    expect(1 == Storage::calls<Ctor>());
+    expect(1 == Storage::calls<CopyCtor>());
+    expect(0 == Storage::calls<MoveCtor>());
+    expect(0 == Storage::calls<Dtor>());
+    storage storage2{storage1};
+    expect(1 == Storage::calls<Ctor>());
+    expect(2 == Storage::calls<CopyCtor>());
+    expect(0 == Storage::calls<MoveCtor>());
+    expect(0 == Storage::calls<Dtor>());
+    storage storage3{std::move(storage2)};
+    expect(1 == Storage::calls<Ctor>());
+    expect(2 == Storage::calls<CopyCtor>());
+    expect(0 == Storage::calls<MoveCtor>()); //sbo fail so pointer is moved
+    expect(0 == Storage::calls<Dtor>());
+  }
+
+  expect(1 == Storage::calls<Ctor>());
+  expect(2 == Storage::calls<CopyCtor>());
+  expect(0 == Storage::calls<MoveCtor>());
+  expect(3 == Storage::calls<Dtor>()); //sbo fail so only 3 values got destructed
+};
+
+test should_support_shared_storage = [] {
+  Storage::calls<Ctor>() = 0;
+  Storage::calls<CopyCtor>() = 0;
+  Storage::calls<MoveCtor>() = 0;
+  Storage::calls<Dtor>() = 0;
+
+  using storage = te::shared_storage;
+
+  {
+    Storage storage0;
+    expect(1 == Storage::calls<Ctor>());
+    expect(0 == Storage::calls<CopyCtor>());
+    expect(0 == Storage::calls<MoveCtor>());
+    expect(0 == Storage::calls<Dtor>());
+    storage storage1{storage0};
+    expect(1 == Storage::calls<Ctor>());
+    expect(1 == Storage::calls<CopyCtor>());
+    expect(0 == Storage::calls<MoveCtor>());
+    expect(0 == Storage::calls<Dtor>());
+    storage storage2{storage1};
+    expect(1 == Storage::calls<Ctor>());
+    expect(1 == Storage::calls<CopyCtor>());
+    expect(0 == Storage::calls<MoveCtor>());
+    expect(0 == Storage::calls<Dtor>());
+    storage storage3{std::move(storage2)};
+    expect(1 == Storage::calls<Ctor>());
+    expect(1 == Storage::calls<CopyCtor>());
+    expect(0 == Storage::calls<MoveCtor>());
+    expect(0 == Storage::calls<Dtor>());
+  }
+
+  expect(1 == Storage::calls<Ctor>());
+  expect(1 == Storage::calls<CopyCtor>());
+  expect(0 == Storage::calls<MoveCtor>());
   expect(2 == Storage::calls<Dtor>());
 };
 
@@ -489,6 +790,28 @@ test should_support_custom_storage = [] {
     expect(46 == addable_local.add(40, 2));
 
     te::poly<Addable, te::local_storage<16>> addable_copy_local{addable_local};
+    expect(46 == addable_copy_local.add(40, 2));
+
+    te::poly<Addable> addable_move_local{std::move(addable_local)};
+    expect(46 == addable_move_local.add(40, 2));
+  }
+
+  {
+    te::poly<Addable, te::sbo_storage<16>> addable_local{Calc{4}};
+    expect(46 == addable_local.add(40, 2));
+
+    te::poly<Addable, te::sbo_storage<16>> addable_copy_local{addable_local};
+    expect(46 == addable_copy_local.add(40, 2));
+
+    te::poly<Addable> addable_move_local{std::move(addable_local)};
+    expect(46 == addable_move_local.add(40, 2));
+  }
+
+  {
+    te::poly<Addable, te::shared_storage> addable_local{Calc{4}};
+    expect(46 == addable_local.add(40, 2));
+
+    te::poly<Addable, te::shared_storage> addable_copy_local{addable_local};
     expect(46 == addable_copy_local.add(40, 2));
 
     te::poly<Addable> addable_move_local{std::move(addable_local)};
