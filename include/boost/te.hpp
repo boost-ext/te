@@ -568,13 +568,13 @@ constexpr auto extends(const T &) noexcept {
 
 #if defined(__cpp_concepts)
 template <class I, class T>
-concept bool var = requires {
+concept var = requires {
   detail::requires_impl<I, T>(
       std::make_index_sequence<detail::mappings_size<T, I>()>{});
 };
 
 template <class I, class T>
-concept bool conceptify = requires {
+concept conceptify = requires {
   detail::requires_impl<I, T>(
       std::make_index_sequence<detail::mappings_size<T, I>()>{});
 };
