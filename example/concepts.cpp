@@ -35,12 +35,12 @@ void draw(TDrawable const &drawable) {
 
 int main() {
   {
-    te::var<Drawable> drawable = Square{};
+    te::var<Drawable> auto drawable = Square{};
     drawable.draw(std::cout);  // prints Square
   }
 
   {
-    te::var<Drawable> drawable = Circle{};
+    te::var<Drawable> auto drawable = Circle{};
     drawable.draw(std::cout);  // prints Circle
   }
 

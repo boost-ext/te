@@ -6,13 +6,13 @@
 // http://www.boost.org/LICENSE_1_0.txt)
 //
 #pragma once
-#if not defined(__cpp_variadic_templates) or                                   \
-    not defined(__cpp_rvalue_references) or not defined(__cpp_decltype) or     \
-    not defined(__cpp_alias_templates) or                                      \
-    not defined(__cpp_generic_lambdas) or not defined(__cpp_constexpr) or      \
-    not defined(__cpp_return_type_deduction) or                                \
-    not defined(__cpp_fold_expressions) or not defined(__cpp_static_assert) or \
-    not defined(__cpp_delegating_constructors)
+#if !defined(__cpp_variadic_templates) ||                                \
+    !defined(__cpp_rvalue_references) || !defined(__cpp_decltype) ||     \
+    !defined(__cpp_alias_templates) ||                                   \
+    !defined(__cpp_generic_lambdas) || !defined(__cpp_constexpr) ||      \
+    !defined(__cpp_return_type_deduction) ||                             \
+    !defined(__cpp_fold_expressions) || !defined(__cpp_static_assert) || \
+    !defined(__cpp_delegating_constructors)
 #error "[Boost].TE requires C++17 support"
 #else
 #pragma GCC system_header
@@ -585,7 +585,7 @@ concept conceptify = requires {
 }  // namespace ext
 }  // namespace boost
 
-#if not defined(REQUIRES)
+#if !defined(REQUIRES)
 #define REQUIRES(R, name, ...)                                     \
   R {                                                              \
     return ::te::call<R>(                                          \

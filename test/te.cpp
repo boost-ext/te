@@ -901,7 +901,7 @@ requires te::conceptify<TDrawable, DrawableConcept> void draw(
 test should_support_erasing_using_concepts = [] {
   {
     std::stringstream str{};
-    te::var<DrawableConcept> drawable = SquareEmpty{};
+    te::var<DrawableConcept> auto drawable = SquareEmpty{};
     drawable.draw(str);
     expect("Square" == str.str());
     expect(3 == drawable.empty());
@@ -940,7 +940,7 @@ struct DrawableConceptMacro {
 test should_support_erasing_using_concepts_macro = [] {
   {
     std::stringstream str{};
-    te::var<DrawableConceptMacro> drawable = SquareEmpty{};
+    te::var<DrawableConceptMacro> auto drawable = SquareEmpty{};
     drawable.draw(str);
     expect("Square" == str.str());
     expect(3 == drawable.empty());

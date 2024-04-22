@@ -1,4 +1,4 @@
-# [Boost::ext].TE <a href="http://www.boost.org/LICENSE_1_0.txt" target="_blank">![Boost Licence](http://img.shields.io/badge/license-boost-blue.svg)</a> <a href="https://travis-ci.org/boost-ext/te" target="_blank">![Build Status](https://img.shields.io/travis/boost-ext/te/master.svg?label=linux/osx)</a> <a href="https://codecov.io/gh/boost-ext/te" target="_blank">![Coveralls](https://codecov.io/gh/boost-ext/te/branch/master/graph/badge.svg)</a> <a href="http://github.com/boost-ext/te/issues" target="_blank">![Github Issues](https://img.shields.io/github/issues/boost-ext/te.svg)</a> <a href="https://godbolt.org/z/xY9MEq">![Try it online](https://img.shields.io/badge/try%20it-online-blue.svg)</a>
+# TE <a href="http://www.boost.org/LICENSE_1_0.txt" target="_blank">![Boost Licence](http://img.shields.io/badge/license-boost-blue.svg)</a> <a href="https://travis-ci.org/boost-ext/te" target="_blank">![Build Status](https://img.shields.io/travis/boost-ext/te/master.svg?label=linux/osx)</a> <a href="https://codecov.io/gh/boost-ext/te" target="_blank">![Coveralls](https://codecov.io/gh/boost-ext/te/branch/master/graph/badge.svg)</a> <a href="http://github.com/boost-ext/te/issues" target="_blank">![Github Issues](https://img.shields.io/github/issues/boost-ext/te.svg)</a> <a href="https://godbolt.org/z/xY9MEq">![Try it online](https://img.shields.io/badge/try%20it-online-blue.svg)</a>
 
 > Your C++17 **one header only** run-time polymorphism (type erasure) library with no dependencies, macros and limited boilerplate
 
@@ -10,7 +10,7 @@
 
 ### Quick start
 
-> [Boost::ext].TE requires only one file. Get the latest header [here!](https://github.com/boost-ext/te/blob/master/include/boost/te.hpp)
+> TE requires only one file. Get the latest header [here!](https://github.com/boost-ext/te/blob/master/include/boost/te.hpp)
 
 ```cpp
 #include <boost/te.hpp> // Requires C++17 (Tested: GCC-6+, Clang-4.0+, Apple:Clang-9.1+)
@@ -186,13 +186,13 @@ void draw(TDrawable const &drawable) { drawable.draw(std::cout); }
 
 int main() {
   {
-    te::var<Drawable> drawable = Square{};
+    te::var<Drawable> auto drawable = Square{};
     drawable.draw(std::cout);// prints Square
   }
 
   {
-    // te::var<Drawable> drawable = Square{}; // error: deduced initializer does not
-    // drawable.draw(std::cout);              //        satisfy placeholder constraints (draw)
+    // te::var<Drawable> auto drawable = Square{}; // error: deduced initializer does not
+    // drawable.draw(std::cout);                   //        satisfy placeholder constraints (draw)
   }
 
   {
@@ -346,7 +346,7 @@ int main() {
 }
 ```
 
-#### Inject it ([[Boost::ext].DI](https://github.com/boost-ext/di))
+#### Inject it ([DI](https://github.com/boost-ext/di))
 
 ```cpp
 class Example {
@@ -395,4 +395,4 @@ int main() {
 
 ---
 
-**Disclaimer** `[Boost::ext].TE` is not an official Boost library.
+**Disclaimer** `TE` is not an official Boost library.
