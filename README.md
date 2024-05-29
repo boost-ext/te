@@ -195,7 +195,7 @@ int main() {
   }
 
   {
-    // te::var<Drawable> auto drawable = Square{}; // error: deduced initializer does not
+    // te::var<Drawable> auto drawable = Circle{}; // error: deduced initializer does not
     // drawable.draw(std::cout);                   //        satisfy placeholder constraints (draw)
   }
 
