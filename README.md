@@ -1,7 +1,7 @@
 # TE
 
 <a href="http://www.boost.org/LICENSE_1_0.txt" target="_blank">![Boost Licence](http://img.shields.io/badge/license-boost-blue.svg)</a>
-<a href="https://github.com/boost-ext/te/releases" target="_blank">![Version](https://badge.fury.io/gh/boost-ext%2Fte.svg)</a>
+<a href="https://github.com/boost-ext/te/releases" target="_blank">![Version](https://img.shields.io/github/v/release/boost-ext/te)</a>
 <a href="https://godbolt.org/z/xY9MEq">![Try it online](https://img.shields.io/badge/try%20it-online-blue.svg)</a>
 
 > Your C++17 **one header only** run-time polymorphism (type erasure) library with no dependencies, macros and limited boilerplate
