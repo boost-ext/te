@@ -419,6 +419,7 @@ class static_vtable {
 namespace detail {
 struct poly_base {
   void** vptr = nullptr;
+  virtual ~poly_base() = default;
   virtual void* ptr() const noexcept = 0;
 };
 }  // namespace detail
